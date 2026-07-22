@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session 4 · Gradient descent - learn classification and regression with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-classification-regression-with-phoebe</a> / Session 4 of 10</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Classification &amp; Regression with Phoebe · Session 4 of 10</div>
+    <h1>How models learn: <span class="accent">gradient descent</span></h1>
+    <p class="sub">Session 3 ended on a cliffhanger: log-loss is the thing logistic regression minimizes. Today you see HOW anything gets minimized. Loss is a landscape over the weights, the gradient points downhill, and the model walks - one stride at a time, stride length set by a single knob called the learning rate. Then you build the walk yourself: a 15-line numpy loop, run on the real Lumen data, that reproduces scikit-learn's coefficients to two decimals. After today, "solver" stops being a scary word in the docs - it is just this loop wearing a suit.</p>
+    <div class="chip-row">
+      <span class="chip level">🟡 Core zoo</span>
+      <span class="chip audience">Builders · DA / DE / DS</span>
+      <span class="chip audience">Python · numpy</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Setup</span>
+      <span class="a2" style="flex:3">3-18 · The surface and the step</span>
+      <span class="a3" style="flex:5">18-40 · Build: descend from scratch</span>
+      <span class="a4" style="flex:1">40-45 · Wrap</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>From "what we minimize" to "how"</h2>
+    </div>
+    <p class="lede">In session 3 you learned that logistic regression picks the weights that minimize log-loss - and we waved a hand at how it finds them. Today the hand-waving stops. Gradient descent is the how, and it is almost embarrassingly simple: check which way is downhill, take a step, repeat. Every solver in scikit-learn, and every optimizer that trains every neural network on Earth, is a variation on this one loop. Learn it once and a whole shelf of documentation stops being intimidating.</p>
+    <div class="legend">
+      <span class="pill solid">Live - built in session</span>
+      <span class="pill light">Self-study - run after</span>
+      <span class="pill amber">★ The one big idea</span>
+      <span class="pill inkpill">The case: Lumen Skincare</span>
+    </div>
+    <div class="callout win">
+      <strong>★ What you walk out with today</strong>
+      A 15-line numpy loop - sigmoid, gradient, step rule - that descends the real Lumen log-loss surface and lands on w = [0.313, 0.238], b = -3.461, matching sklearn's [0.315, 0.240], -3.465 to two decimals. Plus permanent immunity to solver-fear: lbfgs, sag, saga are this loop with better shoes.
+    </div>
+  </section>
+
+  <!-- ============ PART 1: THE LOSS SURFACE ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · the landscape</span>
+      <h2>The loss surface <span class="tag concept">7 min live</span></h2>
+    </div>
+    <p class="lede">Pick any pair of weights and the loss function hands back one number: how wrong the model is with those weights. Do that for every possible pair and you get a <strong>surface</strong> - a landscape where altitude is wrongness. Training is finding the lowest point in that landscape. For log-loss (and for MSE in linear regression) the landscape is a <strong>convex bowl</strong>: one valley, one global minimum, no fake bottoms to get stuck in. That single geometric fact is why training a logistic model is reliable and reproducible.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A convex bowl-shaped loss curve over a weight, with a ball descending it in steps whose arrows shrink as the slope flattens near the global minimum.">
+        <style>
+          .gdAT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .gdAB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .gdAN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .gdAC { stroke: #D6336C; stroke-width: 3; fill: none; }
+          .gdAS { stroke: #9C1E52; stroke-width: 2.5; fill: none; }
+          .gdAx { stroke: #C9CEDD; stroke-width: 1.5; }
+        </style>
+        <defs>
+          <marker id="gdAh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#9C1E52"/></marker>
+        </defs>
+        <text class="gdAT" x="30" y="28">The loss surface - log-loss over the weights is a bowl</text>
+
+        <line class="gdAx" x1="70" y1="50" x2="70" y2="260"/>
+        <line class="gdAx" x1="70" y1="260" x2="820" y2="260"/>
+        <text class="gdAN" x="40" y="58">loss</text>
+        <text class="gdAN" x="762" y="278">weight w</text>
+
+        <path class="gdAC" d="M110 70 Q445 400 780 70"/>
+
+        <circle cx="177" cy="129" r="7" fill="#D6336C"/>
+        <line class="gdAS" x1="185" y1="136" x2="248" y2="177" marker-end="url(#gdAh)"/>
+        <circle cx="257" cy="183" r="5" fill="#D6336C"/>
+        <line class="gdAS" x1="265" y1="188" x2="322" y2="212" marker-end="url(#gdAh)"/>
+        <circle cx="331" cy="216" r="5" fill="#D6336C"/>
+        <line class="gdAS" x1="339" y1="219" x2="382" y2="229" marker-end="url(#gdAh)"/>
+        <circle cx="391" cy="231" r="5" fill="#D6336C"/>
+        <line class="gdAS" x1="399" y1="233" x2="424" y2="235" marker-end="url(#gdAh)"/>
+        <circle cx="432" cy="235" r="5" fill="#D6336C"/>
+        <circle cx="445" cy="235" r="4" fill="#9C1E52"/>
+
+        <text class="gdAN" x="120" y="105">start: random weights</text>
+        <text class="gdAN" x="560" y="120">steep = long stride</text>
+        <text class="gdAN" x="500" y="205">flat = short stride</text>
+        <text class="gdAN" x="410" y="256">global minimum</text>
+
+        <rect x="30" y="296" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="gdAN" x="52" y="307">the gradient says which way is downhill, the learning rate says how big a stride</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - one valley, one bottom: the ball cannot end up anywhere else</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>What a gradient is - the slope in every direction at once<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>In one dimension the slope is a single number: uphill or downhill, and how steeply. With many weights, the <strong>gradient</strong> is just the slope measured along every weight at once - a vector that points in the steepest uphill direction. Walk against it and you are heading downhill as fast as locally possible. That is the whole trick: the model never sees the landscape, it only ever feels the tilt under its feet.</p>
+        <p>How do we compute the tilt of a loss that runs through a sigmoid? The <strong>chain rule</strong>: a chain of effects multiplies. How loss changes with the prediction, times how the prediction changes with the score, times how the score changes with the weight. For log-loss through a sigmoid the chain collapses to something almost rude in its simplicity: the gradient is driven by <code>(p - y)</code> - prediction minus truth. Wrong by a lot, pushed by a lot.</p>
+        <div class="callout tip"><strong>Self-study pointer:</strong> we use the chain rule, we do not derive it. StatQuest's "The Chain Rule" episode is the gentlest 18 minutes on it anywhere - watch it before the deep-learning course, where the chain gets long.</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Why convexity matters - one valley vs a bumpy range<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Session 3's callback: why log-loss instead of just squaring the errors on the sigmoid's output? Because <strong>MSE pushed through a sigmoid is not convex</strong> - the surface ripples, with local dents where a descending ball can park and honestly believe it is done. Log-loss on a linear score is provably one smooth bowl: wherever you start, walking downhill ends at the same global minimum.</p>
+        <p>This is why two runs of <code>LogisticRegression</code> on the same data give the same coefficients, and why the solver can tell you it "converged" with a straight face. Convexity is not a math nicety - it is the difference between "training works" and "training sometimes works".</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2: THE STEP RULE ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · the walk</span>
+      <h2>The step rule and its one knob <span class="tag concept">9 min live</span></h2>
+    </div>
+    <p class="lede">The entire algorithm is one line: <code>w := w - lr * gradient</code>. Current weights, minus the uphill direction scaled by the <strong>learning rate</strong>. Repeat until the loss stops falling. Everything that can go wrong with gradient descent goes wrong in that one multiplication - which makes the learning rate the single most consequential knob you will meet today.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three panels showing the same loss bowl with a learning rate that is too small and crawls, just right and glides to the bottom, and too big so the ball bounces over the valley and diverges.">
+        <style>
+          .gdBB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .gdBN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .gdBF { fill: #FDEEF4; stroke: #F2AECB; stroke-width: 1.5; }
+          .gdBC { stroke: #E45C8D; stroke-width: 2.5; fill: none; }
+          .gdBS { stroke: #9C1E52; stroke-width: 2; fill: none; }
+        </style>
+        <defs>
+          <marker id="gdBh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#9C1E52"/></marker>
+        </defs>
+        <text class="gdBB" x="30" y="30">lr too small</text>
+        <rect class="gdBF" x="30" y="40" width="255" height="190" rx="10"/>
+        <path class="gdBC" d="M55 75 Q157 255 260 75"/>
+        <circle cx="71" cy="102" r="4" fill="#9C1E52"/>
+        <circle cx="82" cy="116" r="3.5" fill="#9C1E52"/>
+        <circle cx="92" cy="128" r="3.5" fill="#9C1E52"/>
+        <circle cx="102" cy="139" r="3.5" fill="#9C1E52"/>
+        <circle cx="112" cy="148" r="3.5" fill="#9C1E52"/>
+        <circle cx="123" cy="155" r="3.5" fill="#9C1E52"/>
+        <text class="gdBN" x="150" y="190">...still going...</text>
+        <text class="gdBN" x="42" y="250">tiny hops, thousands of</text>
+        <text class="gdBN" x="42" y="266">iterations to converge</text>
+
+        <text class="gdBB" x="315" y="30">lr just right</text>
+        <rect class="gdBF" x="315" y="40" width="255" height="190" rx="10"/>
+        <path class="gdBC" d="M340 75 Q442 255 545 75"/>
+        <circle cx="356" cy="102" r="4" fill="#9C1E52"/>
+        <line class="gdBS" x1="362" y1="109" x2="384" y2="137" marker-end="url(#gdBh)"/>
+        <circle cx="391" cy="143" r="4" fill="#9C1E52"/>
+        <line class="gdBS" x1="397" y1="148" x2="415" y2="158" marker-end="url(#gdBh)"/>
+        <circle cx="422" cy="161" r="4" fill="#9C1E52"/>
+        <line class="gdBS" x1="428" y1="163" x2="434" y2="165" marker-end="url(#gdBh)"/>
+        <circle cx="443" cy="165" r="5" fill="#D6336C"/>
+        <text class="gdBN" x="327" y="250">big strides early, gentle</text>
+        <text class="gdBN" x="327" y="266">landing at the bottom</text>
+
+        <text class="gdBB" x="600" y="30">lr too big - diverges</text>
+        <rect class="gdBF" x="600" y="40" width="255" height="190" rx="10"/>
+        <path class="gdBC" d="M625 75 Q727 255 830 75"/>
+        <circle cx="666" cy="133" r="5" fill="#9C1E52"/>
+        <line class="gdBS" x1="666" y1="133" x2="785" y2="129" marker-end="url(#gdBh)"/>
+        <line class="gdBS" x1="793" y1="128" x2="654" y2="108" marker-end="url(#gdBh)"/>
+        <line class="gdBS" x1="646" y1="107" x2="812" y2="93" marker-end="url(#gdBh)"/>
+        <line class="gdBS" x1="820" y1="92" x2="648" y2="60" marker-end="url(#gdBh)"/>
+        <text class="gdBN" x="612" y="250">each stride overshoots -</text>
+        <text class="gdBN" x="612" y="266">loss climbs, ends in nan</text>
+
+        <rect x="30" y="282" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="gdBN" x="52" y="293">one knob: too small crawls, right glides, too big bounces higher each step and diverges</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - three learning rates, three fates on the same bowl</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The learning rate - the only knob that can ruin everything<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Too small: the ball crawls, and you wait thousands of iterations for what should take hundreds. Too big: each stride flies past the valley floor and lands <em>higher</em> on the opposite wall - the loss climbs instead of falling and eventually overflows to <code>nan</code>. There is no partial credit; a diverging run is garbage.</p>
+        <p><strong>The convergence check</strong> is beautifully low-tech: plot the loss every few iterations. Falling steadily? Converging. Flat? Done - stop. Rising or jagged? Cut the learning rate and restart. When you tune, try values several times apart (0.005, 0.05, 0.5) rather than inching - the failure modes are orders-of-magnitude apart, so the search should be too.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Feature scaling makes the bowl round<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>On Lumen, <code>prior_30d_spend</code> runs 0-400 while <code>pages_viewed</code> runs 1-15. Feed those in raw and the bowl is not round - it is a <strong>stretched canyon</strong>, thousands of times longer in one direction than the other. The steepest-downhill direction in a canyon points at the near wall, not along the valley - so descent zigzags wall to wall, making tiny real progress per step. One learning rate cannot fit both axes: small enough for the steep wall means glacial along the floor.</p>
+        <p>Standardize the features and the canyon becomes a bowl: every direction has a comparable slope, downhill points at the minimum, and one learning rate works everywhere. This is also the payoff of session 3's solver card: <strong>this is WHY sag and saga demand scaled inputs</strong> - they are descent methods, and unscaled features hand them a canyon.</p>
+        <div class="callout tip"><strong>Rule of thumb:</strong> anything that learns by descending - logistic via sag/saga, SGD, neural nets - gets standardized features. Fit the scaler on train only, forever.</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Batch vs stochastic vs mini-batch<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Batch</strong> gradient descent (today's lab) computes the gradient over ALL training rows before each step: smooth, exact, but one step costs a full pass over the data. <strong>Stochastic</strong> (SGD) computes it from ONE row: each step is noisy and often slightly wrong, but costs almost nothing - so you take thousands of cheap wobbly steps and still reach the valley, even when the data no longer fits in memory. <strong>Mini-batch</strong> - a few dozen rows per step - is the compromise that deep learning standardized on.</p>
+        <p>In scikit-learn this lives in <code>SGDClassifier(loss="log_loss")</code>: same logistic model, descent done one row at a time. When Lumen outgrows lbfgs - say 400 million sessions instead of 40,000 - this is the escape hatch. The loss curve wobbles instead of gliding; squint and it still goes down.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3: THE REVEAL ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · the reveal</span>
+      <h2>What sklearn's solvers actually are <span class="tag concept">5 min live</span></h2>
+    </div>
+    <p class="lede">Now re-read session 3's solver table with today's eyes. <code>lbfgs</code>, <code>newton-cholesky</code>, <code>sag</code>, <code>saga</code> - every one is an industrial-strength variant of the loop you are about to write. lbfgs approximates the bowl's curvature to pick smarter strides; newton methods use the curvature exactly; sag and saga are stochastic descent with variance tricks so they converge like batch. Different shoes, same walk. You now know the family, so the docs read like a menu instead of a spellbook.</p>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>When descent fails - a postcard from deep learning<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Everything today leaned on one luxury: convexity. Neural-network loss surfaces are NOT convex - they are mountain ranges with saddle points (flat in one direction, curved in another) and countless local dips. Descent still works there, but it needs help: momentum to coast through flats, Adam to adapt the stride per weight, and backpropagation to compute gradients through many layers - which is just the chain rule, chained longer.</p>
+        <p>None of that is this course's job. It belongs to the deep-learning course - and when you get there, the optimizer pages will read as "gradient descent plus tricks", because that is what they are.</p>
+      </div>
+    </details>
+
+    <div class="callout example"><span class="ex-pill">Real world</span>A data scientist pinged her team channel in a mild panic: "ConvergenceWarning: lbfgs failed to converge - is the model broken?" Nobody who fears solvers can answer that; anyone who knows the loop can. The descent simply ran out of steps before the loss flattened - on a canyon-shaped surface, because two features were unscaled. Scale the features (or raise <code>max_iter</code>) and the warning evaporates. Ten minutes, no mystery, no rebuilt model.</div>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Descend from scratch - and reproduce sklearn <span class="tag demo">★ 18 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">The lab this whole session exists for: batch gradient descent on the real Lumen data, two scaled features, learning rate 0.5, 400 iterations, about 15 lines of numpy. Then we fit <code>LogisticRegression</code> on the exact same features and compare coefficients. If the two match, you did not learn an analogy of how models train - you learned the thing itself.</p>
+
+    <div class="steps">
+      <div class="step"><p><strong>Build the pieces.</strong> Standardize <code>prior_30d_spend</code> and <code>pages_viewed</code> on train only, then write the sigmoid and the log-loss function - the surface we are descending, straight from session 3.</p></div>
+      <div class="step"><p><strong>Take ONE step by hand.</strong> Compute <code>(p - y)</code>, the gradient, and one update of <code>w</code> and <code>b</code>. Print the loss before and after - it fell. That falling number IS learning.</p></div>
+      <div class="step"><p><strong>Loop it 400 times.</strong> lr = 0.5. Watch the printed loss fall fast, then level off - the flattening is your convergence check.</p></div>
+      <div class="step"><p><strong>Compare with sklearn.</strong> <code>LogisticRegression(C=1e6)</code> (near-unregularized, so the bowls match) on the same two features. Read the two sets of numbers side by side, slowly.</p></div>
+    </div>
+
+    <div class="prompt-box good">
+      <span class="label">descend.py - the 15-line loop that is every solver's grandparent</span>import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+
+df = pd.read_parquet("lumen_sessions.parquet")
+X = df[["prior_30d_spend", "pages_viewed"]].to_numpy(dtype=float)
+y = df["converted"].to_numpy(dtype=float)
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y)
+
+mu, sd = X_tr.mean(axis=0), X_tr.std(axis=0)   # scale on TRAIN only -
+X_tr = (X_tr - mu) / sd                        # a round bowl descends straight
+
+def loss(p, y):                                # log-loss: the c3 surface
+    return -(y * np.log(p) + (1 - y) * np.log(1 - p)).mean()
+
+w, b, lr = np.zeros(2), 0.0, 0.5
+for i in range(400):
+    p = 1 / (1 + np.exp(-(X_tr @ w + b)))      # sigmoid
+    grad_w = X_tr.T @ (p - y_tr) / len(y_tr)   # which way is uphill
+    grad_b = (p - y_tr).mean()
+    w, b = w - lr * grad_w, b - lr * grad_b    # the step rule, verbatim
+    if i % 100 == 0:
+        print(f"iter {i:3d}  loss {loss(p, y_tr):.4f}")  # falling = learning
+
+print(w.round(3), round(b, 3))                 # [0.313 0.238] -3.461
+
+sk = LogisticRegression(C=1e6).fit(X_tr, y_tr)
+print(sk.coef_[0], sk.intercept_[0])           # ~[0.315 0.240] -3.465</div>
+
+    <div class="callout win"><strong>★ The payoff line:</strong> your loop just reproduced scikit-learn. w = [0.313, 0.238], b = -3.461 from 15 lines of numpy vs [0.315, 0.240], -3.465 from the library - a match to two decimals. The remaining crumbs are stopping rules and floating-point, not concept. Solvers are officially demystified.</div>
+
+    <div class="prompt-box bad">
+      <span class="label">the cautionary run - same loop, learning rate cranked to 50</span>w, b, lr = np.zeros(2), 0.0, 50        # one knob, turned way too far
+for i in range(400):
+    p = 1 / (1 + np.exp(-(X_tr @ w + b)))
+    w -= lr * (X_tr.T @ (p - y_tr) / len(y_tr))
+    b -= lr * (p - y_tr).mean()
+# loss explodes to nan within a few steps: every stride flies over the
+# valley and lands higher on the far wall. Divergence is not "slower
+# training" - the run produces nothing usable at all.</div>
+
+    <div class="callout tip"><strong>If your numbers differ in the 2nd decimal:</strong> fine - library-version jitter. Differ in the 1st? Check the seed (42), that you standardized on train statistics only, and that C=1e6 - regular C=1 regularizes, which moves the bowl's bottom on purpose (that story was session 3's).</div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 5 <span class="tag exercise">◐ 25 min</span></h2>
+    </div>
+    <ul>
+      <li>Rerun <code>descend.py</code> with lr = 0.05 and lr = 5.0, recording the loss every 10 iterations. Plot the three loss curves on one chart and name each shape: crawl, glide, or bounce?</li>
+      <li>Convert the loop to SGD: each iteration, update from ONE random training row instead of all of them. Plot the loss - it wobbles on the way down. Say in one sentence why that wobble is a price worth paying at 400 million rows.</li>
+      <li>Delete the two scaling lines and rerun batch GD with lr = 0.5. Does it converge in 400 iterations at all? How many does it need - or what learning rate does it force you down to? Feel the canyon.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions before you go 🎯 <span class="tag exercise">◐ 90 seconds</span></h2>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1 · What does the learning rate control, and what happens when it is too big?</p>
+      <button class="qopt" type="button">A · how many iterations the loop runs; too big wastes compute but is otherwise safe</button>
+      <button class="qopt" type="button">B · the size of each step downhill; too big and every stride overshoots the valley, so the loss climbs and diverges to nan</button>
+      <button class="qopt" type="button">C · how many features the model uses; too big causes overfitting</button>
+      <p class="qwhy">w := w - lr * gradient. The gradient gives direction, lr gives stride length. Too small merely crawls; too big lands higher on the opposite wall every step - divergence, the one failure with no partial credit.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">2 · Why do we scale features before gradient descent?</p>
+      <button class="qopt" type="button">A · unscaled features stretch the bowl into a canyon, so descent zigzags between walls; scaling makes it round so downhill points at the minimum - and sag/saga solvers assume exactly this</button>
+      <button class="qopt" type="button">B · scaling makes the coefficients easier to read but has no effect on the descent itself</button>
+      <button class="qopt" type="button">C · scikit-learn raises an error if numeric features are not standardized</button>
+      <p class="qwhy">A stretched valley means no single learning rate suits both axes: safe for the steep wall = glacial along the floor. Standardizing rounds the bowl - which is why descent-based solvers (sag, saga, SGD) demand scaled inputs.</p>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">3 · Stochastic gradient descent vs batch - what is the trade, and who wins on huge data?</p>
+      <button class="qopt" type="button">A · SGD is always more accurate because noise helps it explore the surface</button>
+      <button class="qopt" type="button">B · batch is always better; SGD exists only for GPUs</button>
+      <button class="qopt" type="button">C · SGD takes noisy, nearly-free steps from one row each; batch takes smooth, expensive full-data steps - on data too big for memory, SGD's cheap wobble wins</button>
+      <p class="qwhy">One row per step means each step is slightly wrong but costs almost nothing - thousands of wobbly steps still find the valley. That is SGDClassifier(loss="log_loss"): the same logistic model, built for data that outgrows lbfgs.</p>
+    </div>
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ OFFICIAL SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Source material</span>
+      <h2>What this session covers</h2>
+    </div>
+    <p class="lede">Session 4 covers the gradient-descent core of the anchor sources - StatQuest's GD episodes and Andrew Ng's C1 optimization arc, with the classic numpy GD lab pattern mirrored on Lumen data. Videos, graded labs, and certificates stay with the official providers.</p>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest - Gradient Descent (step-by-step)</span><span class="note">Parts 1-2 + the lab</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest - Stochastic Gradient Descent</span><span class="note">Part 2 batch/SGD/mini-batch card</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">StatQuest - The Chain Rule</span><span class="note">named + intuition only; pointed as self-study</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Ng C1 W1 - gradient descent, implementing GD, learning rate</span><span class="note">Parts 1-2 + demo</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Ng C1 W2 - feature scaling, convergence check, choosing the learning rate</span><span class="note">the numpy-lab pattern, mirrored on Lumen</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">sklearn - lbfgs/newton/sag/saga as descent variants; SGDClassifier as scale-out</span><span class="note">Part 3; ties to c3's solver card</span></div>
+      <div class="covered-row"><span class="status pill light">✗</span><span class="name">Adam, momentum, backpropagation</span><span class="note">not covered by design - the deep-learning course</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 4 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>The step rule</b><span>w := w - lr * gradient. Gradient = steepest uphill (built from (p - y) via the chain rule); walk against it, repeat until the loss flattens.</span></div>
+      <div class="cheat-item"><b>Learning-rate fates</b><span>Too small: crawls for thousands of iterations. Right: glides to the bottom. Too big: overshoots every step, loss climbs, nan. Tune in multiples, watch the loss curve.</span></div>
+      <div class="cheat-item"><b>Convex bowl</b><span>Log-loss and MSE give ONE valley, one global minimum - any start, same answer. MSE-through-sigmoid ripples; that is why c3 chose log-loss.</span></div>
+      <div class="cheat-item"><b>Scale first</b><span>Unscaled features = stretched canyon = zigzag descent. Standardize (train stats only) and the bowl is round - the reason sag/saga/SGD demand scaling.</span></div>
+      <div class="cheat-item"><b>Batch / SGD / mini-batch</b><span>All rows per step (smooth, dear) / one row (noisy, ~free, scales forever) / a few dozen (deep learning's default). SGDClassifier(loss="log_loss") when data outgrows lbfgs.</span></div>
+      <div class="cheat-item"><b>The 15-line receipt</b><span>Batch GD, 2 scaled features, lr 0.5, 400 iters: w [0.313, 0.238], b -3.461 vs sklearn [0.315, 0.240], -3.465. Solvers = this loop with better shoes.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>Session 4 of 10 · learn-classification-regression-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="../index.html">← All sessions</a> &nbsp;·&nbsp; <a href="c3-logistic-regression.html">← Prev: Logistic regression</a> &nbsp;·&nbsp; <a href="c5-k-nearest-neighbors.html">Next: k-nearest neighbors →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

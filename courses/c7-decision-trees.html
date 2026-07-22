@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session 7 · Decision trees, in depth - learn classification and regression with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-classification-regression-with-phoebe</a> / Session 7 of 10</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Classification &amp; Regression with Phoebe · Session 7 of 10</div>
+    <h1>Decision trees, <span class="accent">in depth</span></h1>
+    <p class="sub">Intro-ml used one decision tree as a prop: crank the depth, draw the U-curve, learn to fear overfitting. Today the prop becomes the subject. How does a tree actually choose a split? What is gini impurity, and is entropy better? (Spoiler from our own runs: 0.660 vs 0.653 - it is not.) How do you stop a tree from memorizing - before it grows, or after? And once it is grown, how do you read it: the plotted tree, the feature importances, and the traps hiding inside both. Same Lumen data, seed 42, and a satisfying payoff - the planted noise feature, session_hour, finally gets caught red-handed with an importance of roughly zero.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Getting real</span>
+      <span class="chip audience">Builders · DA / DE / DS</span>
+      <span class="chip audience">Python · scikit-learn</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Setup</span>
+      <span class="a2" style="flex:3">3-20 · Splits, purity, pruning</span>
+      <span class="a3" style="flex:5">20-40 · Build: grow, prune, read</span>
+      <span class="a4" style="flex:1">40-45 · Wrap</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>From prop to subject</h2>
+    </div>
+    <p class="lede">A decision tree is the zoo's most legible animal: a stack of yes/no questions anyone can follow with a finger. That legibility is earned by a brutally simple training procedure - greedily audition every possible question, keep the one that un-mixes the classes most, repeat inside each branch. No loss surface, no gradient, no scaling requirements. The catch is the same one intro-ml drew as a U-curve: a tree flexible enough to answer anything is flexible enough to memorize everything, so the craft of trees is the craft of stopping them.</p>
+    <div class="legend">
+      <span class="pill solid">Live - built in session</span>
+      <span class="pill light">Self-study - run after</span>
+      <span class="pill amber">★ The one big idea</span>
+      <span class="pill inkpill">The case: Lumen Skincare</span>
+    </div>
+    <div class="callout win">
+      <strong>★ What you walk out with today</strong>
+      You will be able to explain exactly how one split is chosen (and defend gini vs entropy in one sentence), prune with intent - pre-pruning knobs like max_depth and min_samples_leaf, post-pruning with ccp_alpha - and read a fitted tree without being fooled: walk the plotted paths, sort the feature importances, and know the caveats that make importances lie. Plus the honest loss: our best tree regressor (R² 0.54) loses to plain linear regression (0.59), and you will know why.
+    </div>
+  </section>
+
+  <!-- ============ PART 1: HOW A SPLIT IS CHOSEN ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · the split</span>
+      <h2>How a split is chosen <span class="tag concept">9 min live</span></h2>
+    </div>
+    <p class="lede">Training a tree is an audition, not an optimization: at each node, try <strong>every feature at every threshold</strong>, score each candidate split by how pure its two children would be, and keep the winner. Then recurse into each child and audition again. "Pure" means one-class: a node that is all converters (or all non-converters) needs no further questions. The score sklearn uses by default is <strong>gini impurity</strong> - for a binary node, 2p(1-p), where p is the converter share. It is 0 for a pure node, and peaks at 0.5 for a 50/50 coin-flip node.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A mixed parent node splits on new_vs_returning into two much purer children, shown with purity bars before and after the split.">
+        <style>
+          .dtAT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .dtAB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .dtAN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .dtABox { fill: #FDEEF4; stroke: #F2AECB; stroke-width: 1.5; }
+          .dtAArr { stroke: #D6336C; stroke-width: 2.5; fill: none; }
+        </style>
+        <defs>
+          <marker id="dtAh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0 0 L6 3 L0 6 Z" fill="#D6336C"/>
+          </marker>
+        </defs>
+        <text class="dtAT" x="30" y="28">One split, judged by purity (ILLUSTRATIVE numbers)</text>
+
+        <rect class="dtABox" x="330" y="46" width="220" height="74" rx="10"/>
+        <text class="dtAB" x="346" y="70">mixed node · 50/50</text>
+        <rect x="346" y="82" width="94" height="12" fill="#D6336C"/>
+        <rect x="440" y="82" width="94" height="12" fill="#0CA4B8"/>
+        <text class="dtAN" x="346" y="110">gini = 2(.5)(.5) = 0.5</text>
+
+        <path class="dtAArr" d="M400 120 L230 168" marker-end="url(#dtAh)"/>
+        <path class="dtAArr" d="M480 120 L650 168" marker-end="url(#dtAh)"/>
+        <text class="dtAN" x="212" y="150">new visitor</text>
+        <text class="dtAN" x="600" y="150">returning</text>
+
+        <rect class="dtABox" x="110" y="172" width="220" height="74" rx="10"/>
+        <text class="dtAB" x="126" y="196">left child · 10/90</text>
+        <rect x="126" y="208" width="19" height="12" fill="#D6336C"/>
+        <rect x="145" y="208" width="169" height="12" fill="#0CA4B8"/>
+        <text class="dtAN" x="126" y="236">gini = 2(.1)(.9) = 0.18</text>
+
+        <rect class="dtABox" x="550" y="172" width="220" height="74" rx="10"/>
+        <text class="dtAB" x="566" y="196">right child · 90/10</text>
+        <rect x="566" y="208" width="169" height="12" fill="#D6336C"/>
+        <rect x="735" y="208" width="19" height="12" fill="#0CA4B8"/>
+        <text class="dtAN" x="566" y="236">gini = 2(.9)(.1) = 0.18</text>
+
+        <rect x="110" y="262" width="660" height="42" rx="10" fill="#E5F6F8" stroke="#0CA4B8" stroke-width="1.5"/>
+        <text class="dtAB" x="126" y="288">Weighted child gini ~0.18, down from 0.5 - a big purity gain, so this split wins the audition.</text>
+
+        <rect x="30" y="318" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="dtAN" x="52" y="329">The best split is the one that un-mixes the classes most. Every node repeats the same audition on its own rows.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - purity before and after one winning split</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Gini vs entropy - the debate that is not one<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Entropy is the other purity score, and with it comes <strong>information gain</strong> - Ng's C2 framing: a split's value is the reduction in entropy from parent to (weighted) children. Gini and entropy are shaped almost identically: both are 0 at purity, both peak at 50/50, and they usually pick the same splits.</p>
+        <p>On Lumen the whole debate collapses into one line: depth-5 tree with gini scores <strong>0.660</strong> test AUC, with entropy <strong>0.653</strong>. Near-identical. Gini is sklearn's default because it is <strong>cheaper to compute</strong> (no logarithms), not because it is more accurate - never teach or believe the "entropy is more precise" folklore. Pick gini, move on with your life, and spend the attention on depth and leaf size, which actually move the number.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>No scaling needed - and what to do with categoricals<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Every split compares values <em>within one feature</em>: is spend above 120, is the channel email. Features never get added together, so their units never compete - the zoo's low-maintenance animal needs no StandardScaler, ever. (Compare session 5, where skipping the scaler cost kNN six points of AUC.)</p>
+        <p>Categoricals still need encoding, though: sklearn's CART implementation has no native categorical support, so we one-hot them - exactly as Ng's tree module teaches. One-hot turns each category into its own yes/no split candidate, which trees digest happily.</p>
+        <div class="callout tip"><strong>Pipeline note:</strong> today's ColumnTransformer is one-hot only, numerics passed through raw. Enjoy it - it is the shortest preprocessing of the course.</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Where do thresholds for continuous features come from?<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>For a continuous feature like <code>prior_30d_spend</code>, the audition does not try infinitely many thresholds - it sorts the values seen at that node and tries the <strong>midpoints between consecutive sorted values</strong>. With n distinct values, that is at most n-1 candidate thresholds, each scored by the purity of the split it produces.</p>
+        <p>This is why tree training scales with data size times feature count, and why a tree can place a threshold anywhere the data suggests - it is not binning, it is auditioning every boundary the training data can distinguish.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2: GROWTH AND STOPPING ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · the brakes</span>
+      <h2>Growth, and how to stop it <span class="tag concept">9 min live</span></h2>
+    </div>
+    <p class="lede">Left unchecked, the audition never ends: the tree keeps splitting until every leaf is pure - one leaf per stray point if that is what purity takes. That is memorization wearing a flowchart costume. Here is intro-ml's U-curve again, now measured in AUC on Lumen (full features, test set):</p>
+
+    <table class="clean">
+      <tr><th>max_depth</th><th>Test ROC-AUC</th><th>Reading</th></tr>
+      <tr><td>2</td><td>0.632</td><td>too shallow - good questions left unasked</td></tr>
+      <tr><td>5</td><td>0.660</td><td>the peak</td></tr>
+      <tr><td>8</td><td>0.650</td><td>starting to fit noise</td></tr>
+      <tr><td>None</td><td>0.509 (train 1.000)</td><td>pure memorization - a coin flip on new data</td></tr>
+    </table>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Play: depth on the boundary explorer<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Crank depth on the moons and watch the tree carve one rectangle per stray point - memorization you can see.</p>
+        <div class="algo-live" data-tool="boundary" data-data="lab" data-algo="tree"></div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Pre-pruning - the knobs that stop growth early<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Three knobs cover most real work. <code>max_depth</code> caps how many questions any path may ask. <code>min_samples_split</code> refuses to audition splits at nodes with too few rows. <code>min_samples_leaf</code> refuses any split that would leave a child below the floor - the sklearn practical-tips list suggests <strong>starting at 5</strong>, because a leaf holding one or two rows is almost always memorized noise.</p>
+        <p>Depth has a hidden cost worth internalizing: since each level can double the number of leaves, a tree needs roughly <strong>twice the samples for every extra level of depth</strong> it is going to use honestly. Depth 10 wants around a thousand times the data of depth 1 - which is why "just grow deeper" stops working long before you run out of RAM. The same tips list says to visualize the tree as you train (<code>plot_tree</code>, Part 3) rather than tuning blind.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Post-pruning - grow big, then cut with ccp_alpha<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The other philosophy, from StatQuest's cost-complexity pruning episode: grow the full tree first, then prune it back. <strong>Weakest-link pruning</strong> scores every subtree by error plus a complexity penalty - alpha times the number of leaves - and repeatedly removes the branch that buys the least purity per leaf it costs. Bigger <code>ccp_alpha</code> = heavier penalty = smaller tree.</p>
+        <p>On Lumen, <code>ccp_alpha=1e-4</code> with <em>no depth cap at all</em> lands at <strong>0.635</strong> test AUC - most of the way from memorization (0.509) back toward the depth-5 peak (0.660), with zero manual depth tuning. In practice you sweep alpha with cross-validation (sklearn's <code>cost_complexity_pruning_path</code> hands you the candidate alphas). Whether any alpha can beat 0.660 here is your homework.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Regression trees - variance instead of gini<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Swap the purity score and trees predict numbers: a regression tree audition picks the split that most <strong>reduces the variance</strong> of the target within the children, and each leaf predicts the <strong>mean</strong> of its training rows. Same greedy recursion, same overfitting physics - here is the sweep on the 1,306 Lumen buyers:</p>
+        <table class="clean">
+          <tr><th>max_depth</th><th>Test R²</th><th>Reading</th></tr>
+          <tr><td>3</td><td>0.53</td><td>nearly there</td></tr>
+          <tr><td>4</td><td>0.54</td><td>the peak</td></tr>
+          <tr><td>6</td><td>0.36</td><td>fitting noise fast</td></tr>
+          <tr><td>10</td><td>0.12</td><td>mostly noise now</td></tr>
+          <tr><td>None</td><td>-0.08 (train 1.00)</td><td>memorization goes NEGATIVE</td></tr>
+        </table>
+        <p>Note how much sharper the cliff is than in classification - and note what a leaf-predicts-its-mean model can never do: a regression tree's output is <strong>piecewise constant</strong>, a staircase. Ask it about a spend value beyond anything in training and it answers with the edge leaf's mean - trees cannot extrapolate, not even a little.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3: READING THE TREE ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · the readout</span>
+      <h2>Reading the tree <span class="tag concept">7 min live</span></h2>
+    </div>
+    <p class="lede">The tree's superpower is that you can print it. <code>plot_tree</code> draws the boxes; <code>export_text</code> gives you the same thing as indented if/else lines you can paste into a design doc. Every prediction is a walkable path - which makes trees the white-box animal you reach for when a stakeholder asks "but WHY did it flag this session?". The second readout is <code>feature_importances_</code>: each feature's share of the total impurity reduction, summing to 1. It is genuinely useful and genuinely treacherous - both below.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 350" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A small three-level decision tree with node boxes showing split, gini and samples, ending in magenta convert leaves and cyan no-convert leaves.">
+        <style>
+          .dtBT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .dtBB { font: 700 11px Inter, sans-serif; fill: #1C2233; }
+          .dtBN { font: 600 10px Inter, sans-serif; fill: #636D85; }
+          .dtBBox { fill: #FFFFFF; stroke: #C9CEDD; stroke-width: 1.5; }
+          .dtBLm { fill: #FDEEF4; stroke: #D6336C; stroke-width: 1.5; }
+          .dtBLc { fill: #E5F6F8; stroke: #0CA4B8; stroke-width: 1.5; }
+          .dtBE { stroke: #636D85; stroke-width: 1.5; fill: none; }
+        </style>
+        <defs>
+          <marker id="dtBh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0 0 L6 3 L0 6 Z" fill="#636D85"/>
+          </marker>
+        </defs>
+        <text class="dtBT" x="30" y="28">Walking a fitted tree (ILLUSTRATIVE sketch of plot_tree)</text>
+
+        <rect class="dtBBox" x="350" y="44" width="180" height="62" rx="8"/>
+        <text class="dtBB" x="362" y="62">returning = yes?</text>
+        <text class="dtBN" x="362" y="78">gini 0.5 · samples 100%</text>
+        <text class="dtBN" x="362" y="94">the root asks first</text>
+
+        <path class="dtBE" d="M400 106 L250 140" marker-end="url(#dtBh)"/>
+        <path class="dtBE" d="M480 106 L630 140" marker-end="url(#dtBh)"/>
+        <text class="dtBN" x="270" y="128">no</text>
+        <text class="dtBN" x="590" y="128">yes</text>
+
+        <rect class="dtBBox" x="140" y="144" width="180" height="62" rx="8"/>
+        <text class="dtBB" x="152" y="162">pages &gt; 7?</text>
+        <text class="dtBN" x="152" y="178">gini 0.3 · samples 62%</text>
+        <text class="dtBN" x="152" y="194">new visitors branch</text>
+
+        <rect class="dtBBox" x="560" y="144" width="180" height="62" rx="8"/>
+        <text class="dtBB" x="572" y="162">spend &gt; $120?</text>
+        <text class="dtBN" x="572" y="178">gini 0.4 · samples 38%</text>
+        <text class="dtBN" x="572" y="194">returning branch</text>
+
+        <path class="dtBE" d="M190 206 L150 240" marker-end="url(#dtBh)"/>
+        <path class="dtBE" d="M280 206 L320 240" marker-end="url(#dtBh)"/>
+        <path class="dtBE" d="M610 206 L570 240" marker-end="url(#dtBh)"/>
+        <path class="dtBE" d="M700 206 L740 240" marker-end="url(#dtBh)"/>
+
+        <rect class="dtBLc" x="70" y="244" width="150" height="52" rx="8"/>
+        <text class="dtBB" x="82" y="264">leaf: no convert</text>
+        <text class="dtBN" x="82" y="282">gini 0.1 · mostly cyan</text>
+
+        <rect class="dtBLm" x="250" y="244" width="150" height="52" rx="8"/>
+        <text class="dtBB" x="262" y="264">leaf: convert</text>
+        <text class="dtBN" x="262" y="282">gini 0.2 · magenta</text>
+
+        <rect class="dtBLc" x="490" y="244" width="150" height="52" rx="8"/>
+        <text class="dtBB" x="502" y="264">leaf: no convert</text>
+        <text class="dtBN" x="502" y="282">gini 0.15 · cyan</text>
+
+        <rect class="dtBLm" x="670" y="244" width="150" height="52" rx="8"/>
+        <text class="dtBB" x="682" y="264">leaf: convert</text>
+        <text class="dtBN" x="682" y="282">gini 0.1 · magenta</text>
+
+        <rect x="30" y="324" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="dtBN" x="52" y="335">Every prediction is a walkable path of yes/no questions - follow a session from root to leaf with your finger.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - a three-level tree you can walk by hand</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Feature importance - useful, with caveats<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Impurity-based importance credits each feature with the purity gain of the splits it powered, normalized to sum to 1. On Lumen it delivers this course's most satisfying receipt: <code>session_hour</code> - the noise feature the generator planted with a true coefficient of zero - lands at the bottom with importance ~0. The tree auditioned it at every node and almost never found it worth a split.</p>
+        <p>Two caveats before you put importances in a slide. First, they are <strong>biased toward high-cardinality features</strong>: a feature with many distinct values offers many more candidate thresholds, so it gets more chances to look good by luck. Second, <strong>importance is not causation</strong> - it says "splitting here purified the training data", not "changing this changes the outcome". Session hour being useless is a modeling fact; email being important does not mean sending more email causes conversions. (Your experimentation course owns that question.)</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>A growth team once reshuffled its entire budget toward the channel their tree ranked most important - and conversion did not move. The channel was a proxy for customer intent, not a lever: high-intent shoppers arrived via search, and buying more search traffic bought more low-intent clicks wearing a high-intent label. Importance read the correlation; the budget needed the cause.</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Instability - and the forest-shaped teaser<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Greedy auditions have a fragile side: change a handful of training rows and a different feature may win the root split, sending the entire tree down a different path - same data story, differently shaped flowchart. sklearn's own docs list this instability as a core limitation of single trees.</p>
+        <p>The classic fix is to embrace it: train many trees on resampled data and average them, so the reshuffling cancels out. That is a <strong>random forest</strong> - and it belongs to learn-ensemble-methods, named here so you know where the story continues, not taught here.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Where trees lose - the linear truth problem<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Honest leaderboard time. On the Lumen buyers, the best tree regressor (depth 4) scores <strong>R² 0.54</strong> - and plain linear regression from session 2 scores <strong>0.59</strong>. The tree loses, and it loses for a structural reason: the Lumen generator's spend-to-order relationship is genuinely linear, and a piecewise-constant model can only approximate a ramp with stairs. Every stair tread wastes resolution a straight line gets for free.</p>
+        <p>When the truth is linear, rectangles approximate a ramp with stairs - remember that sentence in session 9, when choosing between families becomes the whole game. Trees earn their keep on interaction-heavy, threshold-y data; on smooth linear signal, the humble line wins.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Grow it, prune it, read it <span class="tag demo">★ 18 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">Five moves: sweep depth and reproduce the U-curve, prune with ccp_alpha instead of a depth cap, plot the top of the winning tree, sort the feature importances to catch session_hour, and run the regressor head-to-head against session 2's linear model.</p>
+
+    <div class="steps">
+      <div class="step"><p><strong>Sweep depth.</strong> One-hot only - no scaler, trees do not care. Loop depth over 2, 5, 8, None and print train and test AUC. The gap between them at depth None IS the lesson.</p></div>
+      <div class="step"><p><strong>Prune instead.</strong> Drop the depth cap, set <code>ccp_alpha=1e-4</code>, and see how close weakest-link pruning gets to the hand-tuned peak.</p></div>
+      <div class="step"><p><strong>Plot and read.</strong> <code>plot_tree</code> with <code>max_depth=2</code> keeps the picture human-sized. Walk one path out loud - root to leaf.</p></div>
+      <div class="step"><p><strong>Sort the importances.</strong> The planted noise feature should sit at the bottom, importance ~0. Enjoy the receipt.</p></div>
+      <div class="step"><p><strong>Regressor vs linear.</strong> Depth-4 tree on the buyers vs plain LinearRegression - the stairs vs the ramp.</p></div>
+    </div>
+
+    <div class="prompt-box good">
+      <span class="label">trees_deep.py - grow, prune, read, and one honest loss</span>import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, plot_tree
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import roc_auc_score, r2_score
+
+df = pd.read_parquet("lumen_sessions.parquet")
+cat = ["channel", "device", "new_vs_returning", "product_category"]
+num = ["pages_viewed", "session_hour", "prior_30d_spend"]
+X, y = df[cat + num], df["converted"]
+
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y)
+
+prep = ColumnTransformer([
+    ("cat", OneHotEncoder(handle_unknown="ignore"), cat)],
+    remainder="passthrough")          # no scaler - trees do not care
+
+for depth in [2, 5, 8, None]:
+    pipe = Pipeline([("prep", prep),
+                     ("tree", DecisionTreeClassifier(
+                         max_depth=depth, random_state=42))]).fit(X_tr, y_tr)
+    tr = roc_auc_score(y_tr, pipe.predict_proba(X_tr)[:, 1])
+    te = roc_auc_score(y_te, pipe.predict_proba(X_te)[:, 1])
+    print(f"depth={str(depth):4s}  train {tr:.3f}  test {te:.3f}")
+
+# depth=2     test 0.632
+# depth=5     test 0.660   &lt;- the peak
+# depth=8     test 0.650
+# depth=None  train 1.000  test 0.509   &lt;- pure memorization
+
+# Post-pruning: no depth cap, let ccp_alpha do the cutting
+pruned = Pipeline([("prep", prep),
+                   ("tree", DecisionTreeClassifier(
+                       ccp_alpha=1e-4, random_state=42))]).fit(X_tr, y_tr)
+print(f"ccp_alpha=1e-4  test "
+      f"{roc_auc_score(y_te, pruned.predict_proba(X_te)[:, 1]):.3f}")
+
+# ccp_alpha=1e-4  test 0.635
+
+# Read the depth-5 winner: top 2 levels + sorted importances
+best = Pipeline([("prep", prep),
+                 ("tree", DecisionTreeClassifier(
+                     max_depth=5, random_state=42))]).fit(X_tr, y_tr)
+names = best.named_steps["prep"].get_feature_names_out()
+plot_tree(best.named_steps["tree"], max_depth=2,
+          feature_names=names, filled=True)
+plt.show()
+
+imp = pd.Series(best.named_steps["tree"].feature_importances_,
+                index=names).sort_values(ascending=False)
+print(imp)
+# session_hour lands at the bottom, importance ~0.00
+# - the planted noise feature, finally exposed
+
+# Regression: depth-4 tree vs plain linear on the buyers (n=1,306)
+buyers = df[df["converted"] == 1]
+bcat = ["product_category", "channel", "new_vs_returning"]
+Xb, yb = buyers[bcat + ["prior_30d_spend"]], buyers["order_value"]
+Xb_tr, Xb_te, yb_tr, yb_te = train_test_split(
+    Xb, yb, test_size=0.25, random_state=42)
+
+prep_b = ColumnTransformer([
+    ("cat", OneHotEncoder(handle_unknown="ignore"), bcat)],
+    remainder="passthrough")
+
+for name, model in [("tree d=4", DecisionTreeRegressor(max_depth=4,
+                                                       random_state=42)),
+                    ("linear", LinearRegression())]:
+    pipe = Pipeline([("prep", prep_b), ("m", model)]).fit(Xb_tr, yb_tr)
+    print(f"{name:9s} R2 {r2_score(yb_te, pipe.predict(Xb_te)):.2f}")
+
+# tree d=4  R2 0.54
+# linear    R2 0.59   &lt;- when the truth is linear, stairs lose to the ramp</div>
+
+    <div class="callout tip"><strong>If your tree looks different from a classmate's:</strong> check <code>random_state=42</code> on the tree itself, not just the split - ties inside the audition are broken randomly, and an unseeded tree can pick a different (equally good) split and grow a different shape from identical data.</div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 8 <span class="tag exercise">◐ 25 min</span></h2>
+    </div>
+    <ul>
+      <li>Sweep <code>ccp_alpha</code> (try <code>cost_complexity_pruning_path</code> for candidates) and either find an alpha that beats depth-5's 0.660 test AUC or conclude, with numbers, that none does.</li>
+      <li>Sweep <code>min_samples_leaf</code> over 1, 5, 25 at depth None. How much of the memorization does the leaf floor alone prevent?</li>
+      <li>In 3 sentences: why is the depth-None tree's train AUC of 1.000 a warning, not a win? Write it as if to a stakeholder who just said "but it scored perfectly".</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions before you go 🎯 <span class="tag exercise">◐ 90 seconds</span></h2>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">1 · Gini vs entropy in practice: what should you actually do?</p>
+      <button class="qopt" type="button">A · always use entropy - it is more accurate because it uses information theory</button>
+      <button class="qopt" type="button">B · always compare both with a grid search - they often differ a lot</button>
+      <button class="qopt" type="button">C · use gini (the default): results are near-identical (0.660 vs 0.653 on Lumen) and gini is cheaper to compute</button>
+      <p class="qwhy">The two scores are shaped almost identically and usually choose the same splits. Gini is the default because it skips the logarithms, not because it is better - and entropy is not "more accurate", on Lumen or in general. Spend the tuning budget on depth and leaf size instead.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">2 · The depth-None tree scored train AUC 1.000 and test AUC 0.509. What happened?</p>
+      <button class="qopt" type="button">A · it memorized the training data - splitting until essentially one leaf per stray point, so it fit the noise perfectly and generalizes like a coin flip</button>
+      <button class="qopt" type="button">B · the test set was mislabeled</button>
+      <button class="qopt" type="button">C · data leakage - the tree saw the test rows during training</button>
+      <p class="qwhy">Unchecked, the audition continues until every leaf is pure, and purity on noisy data means carving a private rectangle around each point. Perfect train score, useless test score - the U-curve's right-hand cliff, now measured in AUC.</p>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">3 · The depth-4 tree regressor (R² 0.54) lost to plain linear regression (0.59) on the buyers. Why?</p>
+      <button class="qopt" type="button">A · the tree needed scaled features</button>
+      <button class="qopt" type="button">B · the true spend-to-order relationship is linear, and a piecewise-constant tree can only approximate a ramp with stairs - each flat step wastes resolution the line gets for free</button>
+      <button class="qopt" type="button">C · regression trees cannot use categorical features</button>
+      <p class="qwhy">Trees never need scaling (each split lives inside one feature), so A is out. The real reason is shape: leaves predict constants, so the tree builds a staircase over a genuinely linear ramp. Match the model to the data's shape - the theme session 9 turns into a method.</p>
+    </div>
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ OFFICIAL SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Source material</span>
+      <h2>What this session covers</h2>
+    </div>
+    <p class="lede">Session 7 covers the tree material across all three anchor sources - the StatQuest tree quartet, Ng's C2 W4 module, and sklearn's decision-tree guide. Videos, graded labs, and certificates stay official.</p>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest: Decision and Classification Trees</span><span class="note">Parts 1-2</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">StatQuest: Decision Trees Part 2 - feature selection and missing data</span><span class="note">selection yes; missing data one note</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest: Regression Trees</span><span class="note">Part 2 + demo</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest: Cost Complexity Pruning</span><span class="note">Part 2 + demo</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Ng C2 W4: choosing splits, entropy and information gain, one-hot for trees, continuous features, regression trees</span><span class="note">Parts 1-2</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Ng C2 W4: tree ensembles</span><span class="note">named as learn-ensemble-methods, not taught</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.10: gini vs entropy/log_loss criteria</span><span class="note">Part 1</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.10: max_depth, min_samples_split, min_samples_leaf, ccp_alpha</span><span class="note">Part 2</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.10: practical tips - leaf floor of 5, depth-doubling sample rule, visualize while training, no normalization needed</span><span class="note">Parts 1-3</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">sklearn 1.10: missing-value routing in modern CART</span><span class="note">mentioned, not exercised</span></div>
+      <div class="covered-row"><span class="status pill light">✗</span><span class="name">Random forest / XGBoost mechanics</span><span class="note">not covered by design - learn-ensemble-methods</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 7 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Splits and gini</b><span>Audition every feature at every threshold; keep the split with the biggest purity gain. Binary gini = 2p(1-p): 0 when pure, 0.5 at a coin flip. Entropy scores near-identically (0.660 vs 0.653); gini is default because it is cheaper.</span></div>
+      <div class="cheat-item"><b>The depth U</b><span>Test AUC: depth 2 → 0.632, depth 5 → 0.660 (peak), depth 8 → 0.650, None → 0.509 with train 1.000. Perfect train score = warning, not win.</span></div>
+      <div class="cheat-item"><b>Pre-pruning</b><span>max_depth caps questions; min_samples_leaf=5 is the sklearn starting tip; samples needed roughly double per level of depth - deep trees are data-hungry.</span></div>
+      <div class="cheat-item"><b>Post-pruning</b><span>Grow full, then cut: ccp_alpha weakest-link pruning trades leaves for error. alpha=1e-4 with no depth cap → 0.635 on Lumen. Sweep alpha with CV.</span></div>
+      <div class="cheat-item"><b>Reading the tree</b><span>plot_tree / export_text = the white-box readout. Importances sum to 1 and caught session_hour at ~0 - but they favor high-cardinality features and are NOT causation.</span></div>
+      <div class="cheat-item"><b>No scaling needed</b><span>Splits compare within one feature, so units never compete - skip the scaler. But trees are piecewise constant: they cannot extrapolate, and on linear truth (buyers: tree 0.54 vs linear 0.59) stairs lose to the ramp.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>Session 7 of 10 · learn-classification-regression-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="c6-naive-bayes.html">← Prev: Naive Bayes</a> &nbsp;·&nbsp; <a href="c8-support-vector-machines.html">Next: Support vector machines →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/algo-live.js?v=1"></script>
+</body>
+</html>

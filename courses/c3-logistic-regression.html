@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session 3 · Logistic regression, from the inside - learn classification and regression with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-classification-regression-with-phoebe</a> / Session 3 of 10</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Classification &amp; Regression with Phoebe · Session 3 of 10</div>
+    <h1>Logistic regression, <span class="accent">from the inside</span></h1>
+    <p class="sub">In intro-ml, <code>LogisticRegression</code> was a black box you fit, scored, and trusted. Today we take the lid off. You will see how a plain linear score becomes a probability (the sigmoid), climb the ladder from probability to odds to log-odds - the scale where logistic really is linear - and then do the most satisfying thing in this course so far: fit the model on Lumen, exponentiate its coefficients, and watch it recover, almost digit for digit, the machine that generated the data. By the end, "email has an odds ratio of about 4" is a sentence you can say, defend, and translate for a stakeholder.</p>
+    <div class="chip-row">
+      <span class="chip level">🟡 Core zoo</span>
+      <span class="chip audience">Builders</span>
+      <span class="chip audience">Python · scikit-learn</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Setup</span>
+      <span class="a2" style="flex:3">3-18 · Sigmoid, odds, coefficients</span>
+      <span class="a3" style="flex:5">18-40 · Build: read the machine</span>
+      <span class="a4" style="flex:1">40-45 · Wrap</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>The box you have been trusting</h2>
+    </div>
+    <p class="lede">You have fit this model at least four times across the courses - and never once asked what the numbers inside it mean. Fair: the workflow had to come first. But logistic regression is the single most-deployed classifier in industry precisely because its insides are readable - every coefficient is a claim about the world that you can state, check, and challenge. A model you can read is a model your stakeholders can trust, and today it becomes yours.</p>
+    <div class="legend">
+      <span class="pill solid">Live - built in session</span>
+      <span class="pill light">Self-study - run after</span>
+      <span class="pill amber">★ The one big idea</span>
+      <span class="pill inkpill">The case: Lumen Skincare</span>
+    </div>
+    <div class="callout win">
+      <strong>★ What you walk out with today</strong>
+      The ability to read any logistic coefficient as an odds ratio and explain it to a stakeholder without hand-waving: email multiplies a session's conversion odds by ~4.1, a returning customer's by ~2.8 - and the discipline to say "odds", not "probability", when it matters. Plus one genuinely magical moment: your fitted model recovering the exact coefficients the Lumen generator used to create the data.
+    </div>
+  </section>
+
+  <!-- ============ PART 1: LINE TO PROBABILITY ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · the squash</span>
+      <h2>From line to probability <span class="tag concept">7 min live</span></h2>
+    </div>
+    <p class="lede">Under the hood, logistic regression is session 2's model wearing a disguise. It computes the same weighted sum - <strong>z = w·x + b</strong> - a plain score that can be any number from minus infinity to plus infinity. Then one function, the <strong>sigmoid</strong>, squashes that score into (0, 1) so it can be read as a probability. Big positive z, probability near 1. Big negative z, near 0. z exactly 0, probability exactly 0.5 - and that is where the model changes its mind.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The sigmoid curve mapping the linear score z to a probability between 0 and 1, with the 0.5 line and z equals 0 marked as the decision boundary.">
+        <style>
+          .lgAT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .lgAB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .lgAN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .lgAC { font: 600 10.5px Inter, sans-serif; fill: #063C44; }
+          .lgAM { font: 700 11px Inter, sans-serif; fill: #9C1E52; }
+        </style>
+        <defs>
+          <marker id="lgAh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#C9CEDD"/></marker>
+        </defs>
+        <text class="lgAT" x="30" y="26">The sigmoid - any score in, a probability out</text>
+
+        <!-- axes -->
+        <line x1="70" y1="266" x2="830" y2="266" stroke="#C9CEDD" stroke-width="1.5" marker-end="url(#lgAh)"/>
+        <line x1="90" y1="280" x2="90" y2="48" stroke="#C9CEDD" stroke-width="1.5" marker-end="url(#lgAh)"/>
+        <text class="lgAN" x="770" y="284">z = w·x + b</text>
+        <text class="lgAN" x="30" y="58">p = sigma(z)</text>
+        <text class="lgAN" x="70" y="284">-6</text>
+        <text class="lgAN" x="436" y="284">0</text>
+        <text class="lgAN" x="700" y="284">+6</text>
+        <text class="lgAN" x="66" y="270">0</text>
+        <text class="lgAN" x="52" y="167">0.5</text>
+        <text class="lgAN" x="66" y="66">1</text>
+
+        <!-- p = 0.5 guide -->
+        <line x1="90" y1="163" x2="790" y2="163" stroke="#0CA4B8" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <!-- z = 0 boundary -->
+        <line x1="440" y1="60" x2="440" y2="266" stroke="#9C1E52" stroke-width="2" stroke-dasharray="5 4"/>
+        <text class="lgAM" x="452" y="78">z = 0, p = 0.5</text>
+        <text class="lgAN" x="452" y="94">the decision boundary</text>
+
+        <!-- the curve -->
+        <path d="M92 264 C250 262 350 240 440 163 C530 86 630 64 790 62" fill="none" stroke="#D6336C" stroke-width="3"/>
+
+        <!-- region hints -->
+        <circle cx="200" cy="230" r="5" fill="#0CA4B8"/>
+        <text class="lgAC" x="212" y="234">z below 0: predict no</text>
+        <circle cx="600" cy="112" r="5" fill="#D6336C"/>
+        <text class="lgAM" x="612" y="116">z above 0: predict convert</text>
+        <text class="lgAN" x="560" y="240">sigma(z) = 1 / (1 + e^-z)</text>
+
+        <rect x="70" y="306" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="lgAN" x="92" y="317">The boundary is where z = 0: in feature space that equation draws a straight line - one calm seam.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the sigmoid and the z = 0 decision boundary</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>The sigmoid - what it does and why it is the right squash<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>sigma(z) = 1 / (1 + e^-z). Three properties earn it the job. It is <strong>monotonic</strong>: a higher score always means a higher probability, so the linear ranking survives the squash. It is <strong>saturating</strong>: past z of about plus or minus 4 it flattens near 1 or 0, so absurd scores cannot produce probabilities above 1 or below 0. And it is <strong>symmetric around z = 0</strong>: sigma(0) = 0.5 exactly, which is what makes "score positive or negative" and "probability above or below a half" the same question.</p>
+        <p>So the model is two moving parts, not one mysterious blob: a linear scorer (all of session 2's machinery - weights, features, an intercept) and a fixed, parameter-free squash. Everything the model <em>learns</em> lives in the line. The sigmoid never changes.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The decision boundary is a line - see it on real Lumen data<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Where does the model flip from "no" to "convert"? Where p = 0.5, which is where z = 0, which is the equation w·x + b = 0 - and in feature space that is a straight line (a flat plane in more dimensions). This is session 1's boundary explorer coming home: of the four boundary signatures you met, logistic regression owns the calm straight seam.</p>
+        <p>Same explorer, now locked to logistic on the real sample - 2 features (spend x pages, standardized), balanced converters vs non-converters. Notice how the seam stays a straight, unbothered line at ~59% test accuracy: two features of real checkout data carry a weak, honest signal. Real data whispers.</p>
+        <div class="algo-live" data-tool="boundary" data-data="lumen" data-algo="logistic"></div>
+        <div class="callout tip"><strong>Do not panic at 59%:</strong> that is 2 features on a deliberately balanced sample - a geometry lesson, not the production model. The full 7-feature model later this session reaches ROC-AUC ~0.69 on the real 3%-conversion data.</div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2: THE ODDS LADDER ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · the ladder</span>
+      <h2>Odds, log-odds, and the coefficient ladder <span class="tag concept">9 min live</span></h2>
+    </div>
+    <p class="lede">To read the coefficients you need one ladder with three rungs. <strong>Probability</strong>: the chance of converting, lives in (0, 1). <strong>Odds</strong>: p / (1 - p), the ratio of converting to not converting, lives in (0, infinity). <strong>Log-odds</strong>: ln(odds), lives on the whole number line - and this is the rung where logistic regression is literally linear: z IS the log-odds. Every coefficient is a statement on this third rung, and one <code>exp()</code> climbs it back down to something a human can say.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The ladder from probability 0.03 to odds 0.031 to log-odds minus 3.5, with the transformation at each step and the note that coefficients live on the log-odds rung.">
+        <style>
+          .lgBT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .lgBB { font: 700 13px Inter, sans-serif; fill: #1C2233; }
+          .lgBV { font: 700 20px Inter, sans-serif; fill: #9C1E52; }
+          .lgBN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .lgBC { font: 600 10.5px Inter, sans-serif; fill: #063C44; }
+        </style>
+        <defs>
+          <marker id="lgBh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#C9CEDD"/></marker>
+        </defs>
+        <text class="lgBT" x="30" y="26">One Lumen session, three rungs of the same ladder</text>
+
+        <rect x="40" y="70" width="220" height="130" rx="12" fill="#FDEEF4" stroke="#F2AECB" stroke-width="1.5"/>
+        <text class="lgBB" x="56" y="98">Probability</text>
+        <text class="lgBV" x="56" y="130">p = 0.03</text>
+        <text class="lgBN" x="56" y="156">lives in (0, 1)</text>
+        <text class="lgBN" x="56" y="172">3 in 100 sessions buy</text>
+
+        <line x1="268" y1="135" x2="322" y2="135" stroke="#C9CEDD" stroke-width="2" marker-end="url(#lgBh)"/>
+        <text class="lgBC" x="270" y="118">p / (1 - p)</text>
+
+        <rect x="330" y="70" width="220" height="130" rx="12" fill="#FDEEF4" stroke="#F2AECB" stroke-width="1.5"/>
+        <text class="lgBB" x="346" y="98">Odds</text>
+        <text class="lgBV" x="346" y="130">0.031</text>
+        <text class="lgBN" x="346" y="156">lives in (0, infinity)</text>
+        <text class="lgBN" x="346" y="172">0.031 buys per pass</text>
+
+        <line x1="558" y1="135" x2="612" y2="135" stroke="#C9CEDD" stroke-width="2" marker-end="url(#lgBh)"/>
+        <text class="lgBC" x="562" y="118">ln(odds)</text>
+
+        <rect x="620" y="70" width="220" height="130" rx="12" fill="#E5F6F8" stroke="#0CA4B8" stroke-width="1.5"/>
+        <text class="lgBB" x="636" y="98">Log-odds</text>
+        <text class="lgBV" x="636" y="130">-3.5</text>
+        <text class="lgBC" x="636" y="156">lives in (-inf, +inf)</text>
+        <text class="lgBC" x="636" y="172">where logistic IS linear</text>
+
+        <text class="lgBN" x="330" y="232">to climb back down: sigmoid(log-odds) returns the probability</text>
+
+        <rect x="40" y="266" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="lgBN" x="62" y="277">Coefficients live on the log-odds rung: +1 unit of a feature adds its coefficient to the log-odds.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - probability to odds to log-odds, and back down via the sigmoid</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Coefficients are log-odds bumps; exp(coef) is the odds ratio<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Because z is the log-odds, each coefficient says: "one unit of this feature <em>adds</em> this much to the log-odds". Adding on a log scale is multiplying on the raw scale - so <code>exp(coef)</code> tells you what one unit of the feature <em>multiplies the odds by</em>. That multiplier is the <strong>odds ratio</strong> (OR), and it is the currency logistic models are read in. Here is Lumen's near-unregularized fit, dummies vs the affiliate reference channel:</p>
+        <table class="clean">
+          <tr><th>Feature</th><th>exp(coef) = odds ratio</th><th>Read it as</th></tr>
+          <tr><td>channel = email</td><td><strong>~4.1</strong></td><td>email sessions carry ~4.1x the conversion odds of affiliate</td></tr>
+          <tr><td>channel = direct</td><td>~3.2</td><td>~3.2x the odds of affiliate</td></tr>
+          <tr><td>returning customer</td><td><strong>~2.8</strong></td><td>~2.8x the odds of a new visitor, all else equal</td></tr>
+          <tr><td>channel = sms</td><td>~2.7</td><td>~2.7x the odds of affiliate</td></tr>
+          <tr><td>pages_viewed</td><td>~1.13</td><td>each extra page multiplies the odds by ~1.13</td></tr>
+          <tr><td>prior_30d_spend</td><td>~1.8 per $100</td><td>coef +0.006 per $1; exp(0.6) is ~1.8 per $100</td></tr>
+          <tr><td>session_hour</td><td>~1.00</td><td>multiplies the odds by ~1 - the planted noise feature, correctly ignored</td></tr>
+          <tr><td>intercept</td><td>log-odds ~ -5.9</td><td>the reference session's starting point, deep in "no" territory</td></tr>
+        </table>
+        <p>Notice the model's honesty: it found the strong channels, priced spend and pages sensibly, and gave the decoy feature a multiplier of one. You will verify all of this against the generator's true coefficients in the build.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The hard rule: an odds ratio is NOT a probability ratio<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>"Returning customers have OR ~2.8" does <strong>not</strong> mean "returning customers are 2.8x as likely to convert". Odds and probability are different rungs of the ladder, and the ratio of one is not the ratio of the other - the gap widens as probabilities grow. At Lumen's ~3% base rate the two happen to be numerically close, which is exactly why sloppy phrasing survives unchallenged - until someone applies it at a 40% base rate and the claim becomes mathematically impossible.</p>
+        <div class="callout tip"><strong>The discipline:</strong> say "2.8x the odds", never "2.8x as likely". If a stakeholder needs probabilities, compute the actual predicted probabilities for two concrete scenarios and show those - it takes one extra line of code and zero asterisks.</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>sklearn regularizes by default - the C trap<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Surprise for statisticians: <code>LogisticRegression()</code> is regularized out of the box - L2 penalty, <code>C=1</code>, where C is the <em>inverse</em> regularization strength (small C = strong penalty; the reciprocal of the alpha convention from session 2's ridge card). Great default for prediction; quietly biased for interpretation, because the penalty shrinks every coefficient toward zero and your odds ratios come out closer to 1 than the data says.</p>
+        <p>The convention this course uses: for clean, readable odds ratios, fit near-unregularized with <code>C=1e6</code> - the statisticians' habit. For pure prediction pipelines, keep the default and tune C by cross-validation - the ML habit. Both are correct; they answer different questions. This is sklearn section 1.1.11's territory - read the whole section once, it is short and saves careers.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Solvers in one card - lbfgs, saga, liblinear<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>lbfgs</strong> is the default and the right answer most days: fast, handles L2, no drama. <strong>saga</strong> is the one to reach for when you need L1 or elastic-net penalties or have very large data - but it converges properly only on scaled features. <strong>liblinear</strong> is the old workhorse with a documented quirk worth knowing: it penalizes the intercept along with the weights, which subtly shifts fitted values - avoid it when you plan to read coefficients. If you ever see a convergence warning, raise <code>max_iter</code> first, check scaling second, switch solvers third.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3: THE LOSS ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · the loss</span>
+      <h2>The loss: why not MSE? <span class="tag concept">6 min live</span></h2>
+    </div>
+    <p class="lede">Session 2's model minimized squared error, so the obvious move is to reuse it: squash predictions through the sigmoid, measure squared distance to the 0/1 labels, minimize. Obvious - and wrong. Push MSE through a sigmoid and the loss surface stops being a clean bowl: it turns <strong>non-convex</strong>, a bumpy landscape of flats and dents where an optimizer can settle into a local dip and stall, far from the best weights. Logistic regression instead uses <strong>log-loss</strong>, which comes straight from maximum likelihood: choose the weights under which the observed labels were most probable. That loss is <strong>convex</strong> - one bowl, one bottom, and any decent optimizer finds it from anywhere.</p>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Confidently wrong is expensive<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Log-loss has a personality: it charges for wrongness in proportion to confidence. Predict p = 0.6 for a session that does not convert and you pay a modest fee. Predict p = 0.99 for that same session and the penalty is brutal - the loss grows without bound as your confidence approaches certainty. A model trained on log-loss learns not just to be right, but to be <em>calibrated</em>: to reserve its 0.99s for cases that deserve them.</p>
+        <p>That is exactly the incentive you want in a conversion model - a scorer that shouts only when it should. Compare naive Bayes in session 6, whose probabilities you will learn <em>not</em> to trust.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>A churn team once ranked customers by a model that was accurate but badly calibrated - its 0.95s were really 0.6s. Retention offers went to customers who were never leaving, at 0.95-level spend. Log-loss trained models, calibration checked, the same budget saved twice the churners the next quarter. Confidence is a product feature; log-loss is how it gets built.</div>
+      </div>
+    </details>
+
+    <div class="callout tip"><strong>Cliffhanger for session 4:</strong> unlike least squares, log-loss has no closed-form solution - no formula spits out the best weights. Something has to walk downhill along the loss surface, step by step. That something is gradient descent, and next session you build it from scratch in 15 lines and match sklearn to two decimals.</div>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Read the machine that made the data <span class="tag demo">★ 18 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">This build has a punchline no real dataset can offer: because Lumen is generated, we KNOW the true machine. The generator computes z = -5.13 + 0.95*returning + 0.006*spend + 0.11*pages + channel lifts, then rolls the dice. Your job: fit a logistic model that has never seen those numbers, and watch it find them.</p>
+
+    <div class="steps">
+      <div class="step"><p><strong>Fit in statistician mode.</strong> <code>get_dummies(drop_first=True)</code>, unscaled features, <code>LogisticRegression(C=1e6, max_iter=8000)</code> on the train split - near-unregularized, so coefficients stay honest.</p></div>
+      <div class="step"><p><strong>Print the odds ratios, biggest first.</strong> <code>np.exp(coef)</code>, sort descending. This is Part 2's table coming off the press: email ~4.1, direct ~3.2, returning ~2.8, sms ~2.7, pages ~1.13, spend ~1.01 per $1, hour ~1.00.</p></div>
+      <div class="step"><p><strong>Compare against the truth.</strong> The generator used +0.95 on returning: exp(0.95) = 2.6, and you fitted ~2.8 - recovered through 30,000 noisy dice rolls. Spend's 0.006 comes back exactly. The decoy hour lands at ~1.00. The model found the machine that made the data.</p></div>
+      <div class="step"><p><strong>The two headline models.</strong> Refit b3's numeric-only replica (scaled: spend, pages, hour) - ROC-AUC ~0.61. The full-feature model - ~0.69. Same algorithm; the features carry the signal.</p></div>
+    </div>
+
+    <div class="prompt-box good">
+      <span class="label">read_the_machine.py - the coefficients meet their maker</span>import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import roc_auc_score
+
+df = pd.read_parquet("lumen_sessions.parquet")
+cat = ["channel", "device", "new_vs_returning", "product_category"]
+num = ["pages_viewed", "session_hour", "prior_30d_spend"]
+X = pd.get_dummies(df[cat + num], drop_first=True)
+y = df["converted"]
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y)
+
+# --- Steps 1-2: statistician mode - near-unregularized, unscaled ---
+machine = LogisticRegression(C=1e6, max_iter=8000).fit(X_tr, y_tr)
+ors = pd.Series(np.exp(machine.coef_[0]), index=X.columns)
+print(ors.sort_values(ascending=False).round(2).head(7))
+print("intercept (log-odds):", machine.intercept_[0].round(1))
+# channel_email                 4.1
+# channel_direct                3.2
+# new_vs_returning_returning    2.8   <- generator used exp(0.95) = 2.6
+# channel_sms                   2.7
+# pages_viewed                  1.13  <- generator used exp(0.11)
+# prior_30d_spend               1.01  <- 0.006 per $1, ~1.8 per $100
+# session_hour                  1.00  <- the planted noise, correctly ignored
+# intercept (log-odds): -5.9
+
+# --- Step 4: the two headline models ---
+b3 = make_pipeline(StandardScaler(), LogisticRegression(max_iter=2000))
+b3.fit(X_tr[num], y_tr)
+print("numeric-only AUC:",
+      roc_auc_score(y_te, b3.predict_proba(X_te[num])[:, 1]).round(2))
+full = LogisticRegression(max_iter=8000).fit(X_tr, y_tr)
+print("full-feature AUC:",
+      roc_auc_score(y_te, full.predict_proba(X_te)[:, 1]).round(2))
+# numeric-only AUC: 0.61
+# full-feature AUC: 0.69   <- same algorithm; the features carry the signal</div>
+
+    <div class="callout tip"><strong>Why unscaled here, scaled in b3?</strong> Scaling changes coefficient units (per standard deviation instead of per dollar or per page), which is right for optimization and wrong for reading. Statistician mode reads raw units; prediction pipelines scale inside the pipeline. Know which mode you are in before you print a coefficient.</div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 4 <span class="tag exercise">◐ 25 min</span></h2>
+    </div>
+    <ul>
+      <li>By hand, from the fitted coefficient +0.006 per $1 of prior spend: what is the odds ratio per $100? Work the exponent (0.006 x 100 = 0.6; exp(0.6) is ~1.8), then check it against the demo's printout.</li>
+      <li>Refit the same model with <code>C=1</code> (sklearn's default) and reprint the odds ratios. Every OR shrinks toward 1 - regularization made visible. Which feature moved most, and why does that make sense?</li>
+      <li>Write three sentences explaining "email has an odds ratio of about 4.1" to a fictional CMO - no formulas, and mind the hard rule: odds, not probability. Bonus point if sentence three proposes what to do about it.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions before you go 🎯 <span class="tag exercise">◐ 90 seconds</span></h2>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">1 · The fitted odds ratio for returning customers is ~2.8. What exactly does that mean?</p>
+      <button class="qopt" type="button">A · a returning customer's odds of converting - p/(1-p) - are ~2.8x a new visitor's, all else equal; it is NOT "2.8x as likely" in probability terms</button>
+      <button class="qopt" type="button">B · returning customers convert 2.8% more often than new visitors</button>
+      <button class="qopt" type="button">C · returning customers are 2.8x as likely to convert, at any base rate</button>
+      <p class="qwhy">Odds ratios multiply odds, not probabilities. At Lumen's ~3% base rate the two are numerically close - which is exactly why the sloppy version survives - but at higher base rates they diverge badly. Say "odds" and stay right at every base rate.</p>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">2 · Why does logistic regression train on log-loss instead of MSE?</p>
+      <button class="qopt" type="button">A · MSE cannot be computed on values between 0 and 1</button>
+      <button class="qopt" type="button">B · MSE pushed through a sigmoid gives a non-convex, bumpy loss where the optimizer can stall in a local dip; log-loss (maximum likelihood) is convex - one bowl, one bottom - and it brutally punishes confident wrong answers</button>
+      <button class="qopt" type="button">C · log-loss is faster to compute than squared error</button>
+      <p class="qwhy">Two reasons, one answer: convexity guarantees the optimizer finds the global best, and the unbounded penalty on confident misses trains calibrated probabilities - the model learns to reserve its 0.99s for cases that earn them.</p>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">3 · Where exactly is logistic regression's decision boundary?</p>
+      <button class="qopt" type="button">A · at the average predicted probability of the training set</button>
+      <button class="qopt" type="button">B · wherever the sigmoid curve bends most steeply</button>
+      <button class="qopt" type="button">C · where z = 0, equivalently p = 0.5 - and since z = w·x + b, that equation draws a straight line (a flat plane) in feature space</button>
+      <p class="qwhy">z = 0 and p = 0.5 are the same place, because sigma(0) = 0.5. The set of points where w·x + b = 0 is linear - which is why logistic regression's boundary signature in the explorer is the one calm straight seam.</p>
+    </div>
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ OFFICIAL SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Source material</span>
+      <h2>What this session covers</h2>
+    </div>
+    <p class="lede">Session 3 covers the logistic-regression core of the anchor sources - sigmoid, odds ladder, coefficients, maximum likelihood - with pseudo-R² named and the solver table condensed to one card. Videos, labs, and certificates stay with the official providers.</p>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest Logistic Regression - the overview episode</span><span class="note">Parts 1-3</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest Details Part 1 - coefficients</span><span class="note">Part 2 + demo</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest Details Part 2 - maximum likelihood</span><span class="note">Part 3</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">StatQuest Details Part 3 - pseudo-R²</span><span class="note">named, not derived - watch the episode if you need a fit statistic for a stats audience</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest Odds and Log(Odds) + Odds Ratios</span><span class="note">taught inline as the ladder, Part 2</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Ng C1 W3 - sigmoid, decision boundary, logistic cost / why-not-MSE</span><span class="note">Parts 1 + 3</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.1.11 - C as inverse regularization + regularized-by-default warning</span><span class="note">Part 2 self-study card</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">sklearn 1.1.11 - solver table</span><span class="note">one card: lbfgs default, saga for L1/large data, liblinear intercept quirk</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 3 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>The sigmoid</b><span>sigma(z) = 1/(1 + e^-z) squashes the linear score z = w·x + b into (0, 1). Monotonic, saturating, sigma(0) = 0.5. The learning lives in the line; the squash never changes.</span></div>
+      <div class="cheat-item"><b>The odds ladder</b><span>probability (0,1) -> odds p/(1-p) (0,inf) -> log-odds ln(odds) (all reals). Logistic is LINEAR on the log-odds rung: z is the log-odds. exp() climbs down one rung.</span></div>
+      <div class="cheat-item"><b>The headline ORs</b><span>exp(coef): email ~4.1, direct ~3.2, returning ~2.8, sms ~2.7 (vs affiliate); pages ~1.13 per page; spend ~1.8 per $100; hour ~1.00 (the decoy, correctly ignored); intercept ~ -5.9.</span></div>
+      <div class="cheat-item"><b>The hard rule</b><span>Odds ratio is not a probability ratio. Say "2.8x the odds", never "2.8x as likely". Close at a 3% base rate; badly wrong at high base rates. Show real predicted probabilities when stakeholders need them.</span></div>
+      <div class="cheat-item"><b>The C trap</b><span>sklearn regularizes by default (C=1; C is INVERSE strength). For readable odds ratios fit C=1e6, unscaled. For prediction, keep the default and tune C by CV. Different questions, different fits.</span></div>
+      <div class="cheat-item"><b>The loss</b><span>Log-loss = maximum likelihood. Convex (one bowl, one bottom) where MSE-on-sigmoid is bumpy - and it punishes confident wrongness without bound, which trains calibration. No closed form: session 4 walks downhill.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>Session 3 of 10 · learn-classification-regression-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="../index.html">← All sessions</a> &nbsp;·&nbsp; <a href="c2-linear-regression.html">← Prev: Linear regression, properly</a> &nbsp;·&nbsp; <a href="c4-gradient-descent.html">Next: Gradient descent →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/algo-live.js?v=1"></script>
+</body>
+</html>

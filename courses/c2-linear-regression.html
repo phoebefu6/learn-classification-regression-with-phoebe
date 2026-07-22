@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session 2 · Linear regression, properly - learn classification and regression with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-classification-regression-with-phoebe</a> / Session 2 of 10</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Classification &amp; Regression with Phoebe · Session 2 of 10</div>
+    <h1>Linear regression, <span class="accent">properly</span></h1>
+    <p class="sub">In intro-ml's b8 you fit this model to judge it - RMSE, MAE, R², done. Today we open it up. You will see exactly which line least squares picks and why, read a slope as literal dollars in front of a stakeholder, add features and watch the fit honestly improve, and then bend the line with polynomial features - first to a shrug (the truth is linear, bending adds nothing) and then to one of the most spectacular failures in the whole course: a degree-12 polynomial whose test R² is minus 798,595. Same Lumen buyers, same seed 42, every number reproducible on your machine.</p>
+    <div class="chip-row">
+      <span class="chip level">🟢 Foundations</span>
+      <span class="chip audience">Builders · DA / DE / DS</span>
+      <span class="chip audience">Python · scikit-learn</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Setup</span>
+      <span class="a2" style="flex:3">3-18 · The line and its loss</span>
+      <span class="a3" style="flex:5">18-40 · Build: line to explosion</span>
+      <span class="a4" style="flex:1">40-45 · Wrap</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>You have used this model. You have not met it.</h2>
+    </div>
+    <p class="lede">In intro-ml, linear regression was the thing you evaluated: fit on the 1,306 Lumen buyers, print the metrics, move on. That was the right order - workflow first. But a model you can only score is a model you cannot defend in a meeting. This session is the meeting-proofing: what the line optimizes, what each learned number means in dollars, and where the whole idea breaks when you give it too much freedom.</p>
+    <div class="legend">
+      <span class="pill solid">Live - built in session</span>
+      <span class="pill light">Self-study - run after</span>
+      <span class="pill amber">★ The one big idea</span>
+      <span class="pill inkpill">The case: Lumen Skincare</span>
+    </div>
+    <div class="callout win">
+      <strong>★ What you walk out with today</strong>
+      The ability to read a coefficient in plain dollars ("44 cents of order value per prior-spend dollar"), an honest grip on R² vs RMSE vs MAE, and the judgement of when to bend the line with polynomial features - and when bending it detonates. The explosion table alone (degree 12, test R² -798,595) will change how you feel about flexible models forever.
+    </div>
+  </section>
+
+  <!-- ============ PART 1: THE LINE AND ITS LOSS ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · the loss</span>
+      <h2>The line and its loss <span class="tag concept">9 min live</span></h2>
+    </div>
+    <p class="lede">Through any cloud of points you could draw infinitely many lines. Least squares picks one by a simple rule: measure each point's vertical miss (the <strong>residual</strong>), square it, add them all up - and choose the line that makes that sum smallest. Everything else in this session is consequences of that one choice.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scatter of Lumen buyers, prior 30-day spend against order value, with the least-squares line, vertical residual segments, and one residual drawn as a literal square to show the squared penalty.">
+        <style>
+          .lrAT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .lrAB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .lrAN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .lrAC { font: 600 10.5px Inter, sans-serif; fill: #063C44; }
+          .lrARes { stroke: #0CA4B8; stroke-width: 2; stroke-dasharray: 4 3; }
+        </style>
+        <defs>
+          <marker id="lrAh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#C9CEDD"/></marker>
+        </defs>
+        <text class="lrAT" x="30" y="26">Least squares - the line that loses least</text>
+
+        <rect x="60" y="44" width="520" height="220" rx="10" fill="#FDEEF4" stroke="#F2AECB" stroke-width="1.5"/>
+        <line x1="60" y1="264" x2="596" y2="264" stroke="#C9CEDD" stroke-width="1.5" marker-end="url(#lrAh)"/>
+        <line x1="60" y1="264" x2="60" y2="34" stroke="#C9CEDD" stroke-width="1.5" marker-end="url(#lrAh)"/>
+        <text class="lrAN" x="440" y="282">prior 30-day spend ($)</text>
+        <text class="lrAN" x="70" y="58">order value ($)</text>
+
+        <!-- residual segments (point to line) -->
+        <line class="lrARes" x1="120" y1="210" x2="120" y2="227"/>
+        <line class="lrARes" x1="180" y1="218" x2="180" y2="209"/>
+        <line class="lrARes" x1="240" y1="180" x2="240" y2="190"/>
+        <line class="lrARes" x1="300" y1="205" x2="300" y2="171"/>
+        <line class="lrARes" x1="420" y1="165" x2="420" y2="134"/>
+        <line class="lrARes" x1="480" y1="105" x2="480" y2="115"/>
+
+        <!-- one residual literally squared -->
+        <rect x="306" y="171" width="34" height="34" fill="#E5F6F8" stroke="#0CA4B8" stroke-width="1.5"/>
+        <text class="lrAC" x="346" y="192">residual, squared:</text>
+        <text class="lrAC" x="346" y="206">the penalty this point pays</text>
+
+        <!-- the fitted line -->
+        <line x1="80" y1="240" x2="560" y2="90" stroke="#9C1E52" stroke-width="2.5"/>
+
+        <!-- points -->
+        <circle cx="120" cy="210" r="5" fill="#D6336C"/>
+        <circle cx="180" cy="218" r="5" fill="#D6336C"/>
+        <circle cx="240" cy="180" r="5" fill="#D6336C"/>
+        <circle cx="300" cy="205" r="5" fill="#D6336C"/>
+        <circle cx="360" cy="140" r="5" fill="#D6336C"/>
+        <circle cx="420" cy="165" r="5" fill="#D6336C"/>
+        <circle cx="480" cy="105" r="5" fill="#D6336C"/>
+        <circle cx="540" cy="100" r="5" fill="#D6336C"/>
+
+        <!-- reading panel -->
+        <rect x="620" y="44" width="230" height="220" rx="10" fill="#E5F6F8" stroke="#0CA4B8" stroke-width="1.5"/>
+        <text class="lrAB" x="636" y="72">Reading the fitted line</text>
+        <text class="lrAC" x="636" y="98">slope ~0.44</text>
+        <text class="lrAN" x="636" y="114">+44 cents of order value</text>
+        <text class="lrAN" x="636" y="130">per prior-spend dollar</text>
+        <text class="lrAC" x="636" y="156">intercept ~$42</text>
+        <text class="lrAN" x="636" y="172">a zero-history buyer's</text>
+        <text class="lrAN" x="636" y="188">expected order</text>
+        <text class="lrAC" x="636" y="214">R² 0.43 · RMSE ~$30</text>
+        <text class="lrAN" x="636" y="230">vs predict-the-mean</text>
+        <text class="lrAN" x="636" y="246">baseline RMSE ~$40</text>
+
+        <rect x="60" y="300" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="lrAN" x="82" y="311">Of every possible line, least squares keeps the one that makes the squared residuals smallest.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - residuals, their squares, and the line that minimizes the total</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Residuals and the loss - why squared, of all things?<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A residual is the vertical gap between a point and the line: actual minus predicted. Sum the raw residuals and positives cancel negatives - a terrible line can score zero. So we square first. Squaring does two jobs at once: it makes every miss count against you, and it makes <em>big</em> misses count disproportionately - a $20 miss costs 4x a $10 miss, not 2x. The line that wins is the one whose worst embarrassments are smallest.</p>
+        <p>There is a quieter reason too: the squared loss is smooth, so calculus can find the minimum exactly, in one closed-form step. That is why <code>LinearRegression().fit()</code> returns instantly with no learning rate, no iterations, no randomness. Session 4 shows the iterative alternative (gradient descent) that logistic regression needs - linear regression is the lucky one that does not.</p>
+        <div class="callout tip"><strong>Vocabulary check:</strong> "ordinary least squares" (OLS), "squared error loss", "minimizing the residual sum of squares" - all the same idea. When sklearn's docs say OLS, they mean this picture.</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Reading coefficients in dollars<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Fit order value on prior 30-day spend alone (Lumen buyers, n=1,306) and the model learns two numbers: slope ~0.44 and intercept ~$42. Say them like a human: <strong>"every extra dollar a customer spent with us last month is worth about 44 cents on today's order, and a customer with no history lands around $42."</strong> That sentence is the entire model - and it is a sentence a CMO can act on.</p>
+        <p>Quality check: this one-feature model scores R² ~0.43 with RMSE ~$30 on the held-out test buyers. The floor from session 1 - just predict the mean order value - has RMSE ~$40. One feature bought you $10 of typical error back. Keep both numbers in the same breath; a metric without its baseline is decoration.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>A retail analyst once presented "the coefficient on loyalty spend is 0.44" and watched the room glaze over. Same meeting, rephrased as "44 cents of today's basket per dollar of last month's spend", the CFO asked for the retention budget to be re-run by lunchtime. The model did not change. The units did.</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>R², honestly<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>R² is the <strong>share of variance explained</strong>: how much of the spread in order values the model accounts for, compared to just predicting the mean. R² 0.43 means the model explains ~43% of why orders differ - and 57% remains unexplained noise or missing features. It is NOT accuracy, it is not "the model is 43% right", and on its own it does not tell you the dollar size of your errors - that is RMSE's job.</p>
+        <p>The trio you already met in intro-ml, one line each: <strong>R²</strong> for "how much of the pattern did we catch" (unitless, baseline 0), <strong>RMSE</strong> for "typical miss in dollars, big misses amplified", <strong>MAE</strong> for "typical miss in dollars, everyone counted equally". Report R² to modelers, RMSE or MAE to the business.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Multicollinearity - when coefficients get wobbly<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>sklearn's OLS guide (section 1.1.1) carries one standing warning: least squares assumes your features are reasonably independent. When two features are strongly correlated - say you added both "prior 30-day spend" and "prior 90-day spend" - the design matrix becomes nearly singular and the fit can split credit between the twins almost arbitrarily. Predictions stay fine; the <em>coefficients</em> become unstable, swinging wildly with tiny changes in the data.</p>
+        <p>The practical rule: the moment you care about reading coefficients (and today you do), check correlations among your features first. If two features tell the same story, keep one, or accept that their individual coefficients are not individually meaningful. Ridge regression (end of Part 3) is the other standard fix - it calms the swinging at the price of a little bias.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2: MORE FEATURES ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · more features</span>
+      <h2>More features, more truth <span class="tag concept">8 min live</span></h2>
+    </div>
+    <p class="lede">Spend alone explains 43% of the variance. Add what else we know about each buyer - product category, channel, new vs returning - and the full linear model reaches <strong>R² ~0.59, RMSE ~$25, MAE ~$20</strong> on the test buyers. Same algorithm, same closed-form fit; the only thing that changed is how much of the story the model was allowed to hear.</p>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Design matrices - how categories become columns<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A line cannot multiply "skincare" by a coefficient. <code>pd.get_dummies(..., drop_first=True)</code> turns each categorical into 0/1 columns, dropping one level per feature. The dropped level becomes the <strong>reference category</strong> baked into the intercept, and every dummy coefficient reads as "dollars relative to that reference". If affiliate is the dropped channel, the email coefficient means "email buyers order this many dollars more (or less) than affiliate buyers, all else equal".</p>
+        <p>Why drop one? With all levels present plus an intercept, the columns sum to a constant - perfect multicollinearity, the pathological case of the warning above. StatQuest calls this whole encoded table the <strong>design matrix</strong>; sklearn just calls it X. Inside pipelines we use <code>OneHotEncoder(handle_unknown="ignore")</code> instead, which keeps all levels but pairs with regularized models - today's <code>get_dummies</code> path is the interpretability convention this course uses whenever we read coefficients.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why MAE sits below RMSE - always, here<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Full model: RMSE ~$25, MAE ~$20. That gap is not an accident - RMSE squares before averaging, so a handful of badly-missed orders dominate it, while MAE treats a $50 miss as exactly five $10 misses. Lumen order values are right-skewed (mean $82, SD $41 on buyers - a long tail of big baskets), and the model misses biggest on exactly those tail orders. Skewed target, so RMSE above MAE, every time.</p>
+        <p>The gap itself is diagnostic: if RMSE towers over MAE, your errors have a heavy tail - go look at which rows the model misses worst before reaching for a fancier algorithm.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>A note on intro-ml's printed numbers<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Sharp-eyed alumni will notice: intro-ml's b8 page printed ~0.52 / $28 for this same full model. Re-validated in July 2026, the same code in the current environment produces <strong>0.59 / $25</strong> - the numpy random stream behind the generator drifted across library versions, so the "same" dataset is no longer bit-identical. The numbers on this page are the ones that reproduce today, and a fix for the intro-ml page is flagged.</p>
+        <div class="callout tip"><strong>The real lesson:</strong> models are code. When your stack moves - a numpy upgrade, a new sklearn - re-run your numbers before you re-present them. A metric you cannot reproduce is a rumor.</div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3: THE EXPLOSION ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · bending the line</span>
+      <h2>Bending the line - and the explosion <span class="tag concept">8 min live</span></h2>
+    </div>
+    <p class="lede"><code>PolynomialFeatures</code> adds x², x³, ... as new columns, letting the line curve. Here is the twist most people miss: the result is <strong>still linear regression</strong> - linear in the <em>weights</em>. The features bend; the model does not. Same least squares, same closed-form fit, just a wider design matrix. On the full 1,306 buyers, degrees 2-3 add nothing: R² stays at 0.43 with spend as the input, exactly matching degree 1. That flatness is a finding - the spend-to-order relationship really is a straight line, and no amount of bending buys anything. Then we shrink the data, and everything changes.</p>
+
+    <table class="clean">
+      <tr><th>Polynomial degree</th><th>Train R²</th><th>Test R²</th><th>Verdict</th></tr>
+      <tr><td>1 (straight line)</td><td>0.37</td><td><strong>+0.43</strong></td><td>honest</td></tr>
+      <tr><td>2</td><td>0.37</td><td>+0.43</td><td>harmless</td></tr>
+      <tr><td>3</td><td>0.37</td><td>+0.34</td><td>starting to slip</td></tr>
+      <tr><td>6</td><td>0.43</td><td><strong>-26.7</strong></td><td>worse than predicting the mean</td></tr>
+      <tr><td>12</td><td>0.47</td><td><strong>-798,595</strong></td><td>the explosion</td></tr>
+    </table>
+    <p class="lede">The setup: 80 buyers subsampled (seed 0), 50 train / 30 test, polynomial on scaled spend. Watch the train column climb politely while the test column falls off a cliff six orders of magnitude deep. Train R² 0.47 looks like the "best" model. It is the worst model on this page by a factor of about two million.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two panels over the same sparse points: a calm degree-1 line with test R-squared plus 0.43, and a degree-12 polynomial wiggling between points and exploding at the panel edges with test R-squared minus 798,595.">
+        <style>
+          .lrBT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .lrBB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .lrBN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .lrBW { stroke: #D6336C; stroke-width: 2.5; fill: none; }
+        </style>
+        <text class="lrBT" x="30" y="26">Same 50 training points. Two very different lines.</text>
+
+        <rect x="30" y="44" width="380" height="210" rx="10" fill="#FDEEF4" stroke="#F2AECB" stroke-width="1.5"/>
+        <text class="lrBB" x="42" y="66">Degree 1 - calm</text>
+        <line x1="50" y1="215" x2="400" y2="105" stroke="#9C1E52" stroke-width="2.5"/>
+        <circle cx="70" cy="200" r="4" fill="#D6336C"/><circle cx="110" cy="195" r="4" fill="#D6336C"/>
+        <circle cx="150" cy="170" r="4" fill="#D6336C"/><circle cx="200" cy="178" r="4" fill="#D6336C"/>
+        <circle cx="250" cy="150" r="4" fill="#D6336C"/><circle cx="300" cy="142" r="4" fill="#D6336C"/>
+        <circle cx="350" cy="120" r="4" fill="#D6336C"/><circle cx="390" cy="112" r="4" fill="#D6336C"/>
+        <text class="lrBN" x="42" y="238">misses every point a little, nothing a lot</text>
+        <text class="lrBB" x="30" y="278">Test R² +0.43</text>
+        <text class="lrBN" x="30" y="296">boring, and right</text>
+
+        <rect x="450" y="44" width="380" height="210" rx="10" fill="#FDEEF4" stroke="#F2AECB" stroke-width="1.5"/>
+        <text class="lrBB" x="462" y="66">Degree 12 - the explosion</text>
+        <path class="lrBW" d="M452 46 C465 250 480 230 490 200 C503 165 515 238 530 195 C545 150 557 226 570 172 C588 100 605 240 620 178 C640 96 655 222 670 152 C690 88 705 208 720 142 C740 78 755 196 770 122 C785 62 800 168 810 112 C818 82 824 250 828 252"/>
+        <circle cx="490" cy="200" r="4" fill="#D6336C"/><circle cx="530" cy="195" r="4" fill="#D6336C"/>
+        <circle cx="570" cy="170" r="4" fill="#D6336C"/><circle cx="620" cy="178" r="4" fill="#D6336C"/>
+        <circle cx="670" cy="150" r="4" fill="#D6336C"/><circle cx="720" cy="142" r="4" fill="#D6336C"/>
+        <circle cx="770" cy="120" r="4" fill="#D6336C"/><circle cx="810" cy="112" r="4" fill="#D6336C"/>
+        <text class="lrBN" x="462" y="238">hits the points, detonates at the edges</text>
+        <text class="lrBB" x="450" y="278">Test R² -798,595</text>
+        <text class="lrBN" x="450" y="296">confident, and catastrophic</text>
+
+        <rect x="30" y="312" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="lrBN" x="52" y="323">Flexibility without restraint is a liability - the wiggle swings between points and explodes past the data's edges.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the calm line vs the degree-12 detonation</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The explosion, explained<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A degree-12 polynomial has enough freedom to pass near every one of 50 training points - and it uses that freedom by <strong>swinging violently between them</strong>. Between two nearby points it can dip or spike hundreds of dollars; the training loss never sees those in-between regions, so nothing stops it. Worse, past the edge of the training data a high-degree polynomial's leading term takes over and the curve rockets toward plus or minus infinity - and the test set has points near those edges.</p>
+        <p>That is why test R² is not merely "bad" but -798,595: R² of 0 means "as good as predicting the mean", negative means worse, and this is six orders of magnitude worse. One test buyer sitting near an edge gets a prediction thousands of dollars wrong, and squared errors do the rest. The overfitting tell from session 1 - train up, test down - at maximum volume.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Ridge and lasso in one card - the leash for flexible models<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Regularization adds a penalty on the weights to the loss, so the fit pays for flexibility it does not earn. <strong>Ridge</strong> (L2, sklearn 1.1.2) penalizes squared weights: everything shrinks toward zero, nothing reaches it - the wild polynomial coefficients get pulled back to sane sizes. <strong>Lasso</strong> (L1, sklearn 1.1.3) penalizes absolute weights: it drives some coefficients exactly to zero, so it doubles as automatic feature selection. <strong>Elastic-net</strong> (1.1.5) mixes both. One dial rules them all: <code>alpha</code> - higher means a shorter leash, alpha 0 means plain least squares.</p>
+        <p>You met the concept in intro-ml b5; the API lives in the sklearn sections above; the intuition (why L1 gives corners that zero things out while L2 gives a circle that only shrinks) is beautifully told in StatQuest's Regularization Parts 1, 2, 2.5 and 3. Tonight's homework has you point Ridge at the degree-6 explosion and watch it get tamed.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>From one honest line to the explosion <span class="tag demo">★ 18 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">Four fits, one arc: read a line in dollars, feed it more truth, try to bend it on plenty of data (nothing happens - and that is information), then bend it on scarce data and watch it detonate. Buyers only (n=1,306), split 979 train / 327 test, no stratify - matching b8's convention.</p>
+
+    <div class="steps">
+      <div class="step"><p><strong>One feature, read aloud.</strong> Fit order value on prior spend alone. Print slope and intercept and say the sentence: 44 cents per prior-spend dollar, ~$42 baseline. Confirm R² 0.43, RMSE ~$30 against the $40 mean-baseline floor.</p></div>
+      <div class="step"><p><strong>The full model.</strong> Add category, channel, and returning via <code>get_dummies(drop_first=True)</code>. R² climbs to ~0.59, RMSE falls to ~$25, MAE ~$20. Skim the coefficients - each dummy reads as dollars vs its reference category.</p></div>
+      <div class="step"><p><strong>Bend on full data - the shrug.</strong> Polynomial degrees 2 and 3 on spend, all 1,306 buyers: test R² stays 0.43. The truth is linear; flexibility has nothing to find. Flat is a finding.</p></div>
+      <div class="step"><p><strong>Bend on 80 buyers - the explosion.</strong> Subsample 80 buyers (seed 0), 50 train / 30 test, sweep degrees 1 / 2 / 3 / 6 / 12. Watch train R² climb to 0.47 while test R² falls to -798,595.</p></div>
+    </div>
+
+    <div class="prompt-box good">
+      <span class="label">line_to_explosion.py - the whole session in one script</span>import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+
+df = pd.read_parquet("lumen_sessions.parquet")
+buyers = df[df["converted"] == 1].copy()          # n = 1,306
+
+# --- Step 1: one feature, read the line ---
+X, y = buyers[["prior_30d_spend"]], buyers["order_value"]
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=42)
+lin = LinearRegression().fit(X_tr, y_tr)
+pred = lin.predict(X_te)
+print(f"slope {lin.coef_[0]:.2f}  intercept ${lin.intercept_:.0f}")
+print(f"R2 {r2_score(y_te, pred):.2f}  RMSE ${mean_squared_error(y_te, pred)**0.5:.0f}")
+# slope 0.44  intercept $42
+# R2 0.43  RMSE $30      (predict-the-mean baseline: RMSE ~$40)
+
+# --- Step 2: the full model (b8's four features) ---
+Xf = pd.get_dummies(
+    buyers[["prior_30d_spend", "product_category", "channel", "new_vs_returning"]],
+    drop_first=True)
+Xf_tr, Xf_te = Xf.loc[X_tr.index], Xf.loc[X_te.index]
+full = LinearRegression().fit(Xf_tr, y_tr)
+pf = full.predict(Xf_te)
+print(f"R2 {r2_score(y_te, pf):.2f}  RMSE ${mean_squared_error(y_te, pf)**0.5:.0f}"
+      f"  MAE ${mean_absolute_error(y_te, pf):.0f}")
+# R2 0.59  RMSE $25  MAE $20
+
+# --- Step 3: poly on ALL buyers - flat on purpose ---
+for d in [1, 2, 3]:
+    poly = make_pipeline(StandardScaler(), PolynomialFeatures(d), LinearRegression())
+    poly.fit(X_tr, y_tr)
+    print(f"degree {d}  test R2 {r2_score(y_te, poly.predict(X_te)):.2f}")
+# degree 1  test R2 0.43
+# degree 2  test R2 0.43
+# degree 3  test R2 0.43      <- the truth is linear; bending adds nothing
+
+# --- Step 4: poly on 80 buyers - the explosion ---
+small = buyers.sample(80, random_state=0)
+Xs, ys = small[["prior_30d_spend"]], small["order_value"]
+Xs_tr, Xs_te, ys_tr, ys_te = train_test_split(Xs, ys, test_size=30, random_state=0)
+for d in [1, 2, 3, 6, 12]:
+    poly = make_pipeline(StandardScaler(), PolynomialFeatures(d), LinearRegression())
+    poly.fit(Xs_tr, ys_tr)
+    tr, te = r2_score(ys_tr, poly.predict(Xs_tr)), r2_score(ys_te, poly.predict(Xs_te))
+    print(f"degree {d:2d}  train R2 {tr:5.2f}  test R2 {te:,.1f}")
+# degree  1  train R2  0.37  test R2 0.4
+# degree  2  train R2  0.37  test R2 0.4
+# degree  3  train R2  0.37  test R2 0.3
+# degree  6  train R2  0.43  test R2 -26.7
+# degree 12  train R2  0.47  test R2 -798,595.0</div>
+
+    <div class="callout tip"><strong>If your explosion has a different blast radius:</strong> the -798,595 depends on exactly which 80 buyers land in the subsample - seed 0 in both the sample and the split reproduces it. Any correct run shows the same shape: degrees 1-2 fine, 6 badly negative, 12 astronomically negative. The shape is the lesson; the exact crater depth is trivia.</div>
+    <div class="callout example"><span class="ex-pill">Real world</span>A demand-forecasting team shipped a flexible model tuned on six weeks of data. It fit history beautifully and then priced next month's promotion using an extrapolation past anything it had seen - the degree-12 edge problem wearing a business suit. The postmortem line became team folklore: "the model was never wrong where we could check it, only where it mattered".</div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 3 <span class="tag exercise">◐ 25 min</span></h2>
+    </div>
+    <ul>
+      <li>Refit the full model with <code>pages_viewed</code> added as a fifth feature. R² ~0.59 barely moves. Write one sentence on why - what does pages_viewed know about order <em>size</em> that the other features do not already say?</li>
+      <li>Plot residuals vs predictions for the full model (<code>plt.scatter(pf, y_te - pf)</code>). Healthy fit: a shapeless band around zero. Any funnel or curve you spot is the model asking for something it was not given.</li>
+      <li>Take Step 4's degree-6 subsample fit and swap <code>LinearRegression()</code> for <code>Ridge(alpha=10)</code> (keep the scaler in the pipeline). Watch the explosion get tamed, then write down what alpha bought you and what it cost.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions before you go 🎯 <span class="tag exercise">◐ 90 seconds</span></h2>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1 · What exactly does least squares minimize?</p>
+      <button class="qopt" type="button">A · the sum of the residuals, so positives and negatives balance out</button>
+      <button class="qopt" type="button">B · the sum of the squared residuals - every vertical miss, squared, then added up</button>
+      <button class="qopt" type="button">C · the number of points the line fails to pass through</button>
+      <p class="qwhy">Raw residuals cancel (a terrible line can sum to zero), so we square first: every miss counts, and big misses count disproportionately. The smooth squared loss is also what makes the closed-form, no-iteration fit possible.</p>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">2 · The degree-12 fit scored train R² 0.47 but test R² -798,595. Which failure is this, and why so extreme?</p>
+      <button class="qopt" type="button">A · underfitting - degree 12 is too simple for 50 points</button>
+      <button class="qopt" type="button">B · data leakage - the test buyers contaminated training</button>
+      <button class="qopt" type="button">C · overfitting - the polynomial wiggles between the training points and explodes past the data's edges, so test points near the edges get predictions thousands of dollars wrong</button>
+      <p class="qwhy">The classic tell: train climbs, test collapses. High-degree polynomials swing violently between points and rocket toward infinity beyond the training range - and squared errors turn a few edge misses into a six-orders-of-magnitude crater.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3 · "Polynomial regression is still linear regression." In what sense?</p>
+      <button class="qopt" type="button">A · linear in the weights - x², x³ are just extra columns in the design matrix, and least squares fits their coefficients exactly as before</button>
+      <button class="qopt" type="button">B · the fitted curve is always a straight line if you zoom in far enough</button>
+      <button class="qopt" type="button">C · it only works when the true relationship is linear</button>
+      <p class="qwhy">The features bend; the model does not. PolynomialFeatures widens X, then ordinary least squares runs unchanged - same loss, same closed form. That is why the whole thing lives in sklearn's linear_model module.</p>
+    </div>
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ OFFICIAL SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Source material</span>
+      <h2>What this session covers</h2>
+    </div>
+    <p class="lede">Session 2 covers the linear-regression core of the anchor sources - least squares, reading fits, multiple regression, and the polynomial trap - with regularization handed to a self-study card. Videos, labs, and certificates stay with the official providers.</p>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest Linear Models Part 0 - least squares and the main ideas</span><span class="note">Part 1</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest Linear Models Part 1 - R² and fit quality</span><span class="note">Part 1</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest Linear Models Part 1.5 - multiple regression</span><span class="note">Part 2</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">StatQuest Linear Models Part 3 - design matrices</span><span class="note">one-hot card in Part 2</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Ng C1 W2 - multiple features + polynomial regression</span><span class="note">Parts 2-3 + demo</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.1.1 - OLS + multicollinearity warning</span><span class="note">Part 1 self-study card</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.1.16 - polynomial features via pipeline</span><span class="note">Part 3 + demo steps 3-4</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">sklearn 1.1.2 / 1.1.3 / 1.1.5 - Ridge, Lasso, Elastic-Net</span><span class="note">intro-ml b5 concept + self-study card + StatQuest Regularization 1/2/2.5/3</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Statistical inference on coefficients (p-values, CIs)</span><span class="note">not covered by design - learn-statistics owns it; sklearn does not compute them anyway</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 2 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Least squares</b><span>Pick the line minimizing the sum of squared residuals. Squaring stops cancellation and punishes big misses; the smooth loss gives a closed-form, no-iteration fit.</span></div>
+      <div class="cheat-item"><b>Slope in dollars</b><span>Slope 0.44 = "44 cents of order value per prior-spend dollar"; intercept ~$42 = the zero-history baseline. Always say the units, never just the number.</span></div>
+      <div class="cheat-item"><b>The metric trio</b><span>R² = share of variance explained (not accuracy). RMSE = dollar miss, big errors amplified. MAE = dollar miss, all equal. Skewed target means RMSE above MAE. Full model: 0.59 / $25 / $20.</span></div>
+      <div class="cheat-item"><b>Design matrix</b><span>get_dummies(drop_first=True): each dummy coefficient = dollars vs the dropped reference category. Keep all levels + intercept and you get perfect multicollinearity.</span></div>
+      <div class="cheat-item"><b>The explosion table</b><span>80 buyers, poly on spend - test R² by degree: 1 and 2 give +0.43, 3 gives +0.34, 6 gives -26.7, 12 gives -798,595. Train R² rose the whole time. Trust the test column.</span></div>
+      <div class="cheat-item"><b>Ridge / lasso</b><span>Penalize weights so flexibility is paid for: L2 (ridge) shrinks everything, L1 (lasso) zeroes some out (feature selection), elastic-net mixes. One dial: alpha.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>Session 2 of 10 · learn-classification-regression-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="../index.html">← All sessions</a> &nbsp;·&nbsp; <a href="c1-the-supervised-zoo.html">← Prev: The supervised zoo</a> &nbsp;·&nbsp; <a href="c3-logistic-regression.html">Next: Logistic regression, from the inside →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

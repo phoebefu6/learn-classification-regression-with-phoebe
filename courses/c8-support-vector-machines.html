@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session 8 · Support vector machines - learn classification and regression with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-classification-regression-with-phoebe</a> / Session 8 of 10</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Classification &amp; Regression with Phoebe · Session 8 of 10</div>
+    <h1>Support vector machines - <span class="accent">the widest street</span></h1>
+    <p class="sub">The last animal in the zoo is the most elegant. Among all the lines that could separate two classes, the SVM picks the one with the widest empty street around it - and it turns out only a handful of training points, the support vectors, decide where that street goes. Then kernels let the street bend without ever leaving linear algebra. This is also the session with the most honest ending in the course: on Lumen, the fancy kernel loses to the straight line, and you will know exactly why. Margin intuition, the kernel trick, the C and gamma dials, and the discipline to test whether fancy actually beats simple - that is today.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Getting real</span>
+      <span class="chip audience">Builders · DA / DE / DS</span>
+      <span class="chip audience">Python · scikit-learn</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Setup</span>
+      <span class="a2" style="flex:3">3-18 · The widest street + kernels</span>
+      <span class="a3" style="flex:5">18-40 · Build: SVM meets Lumen</span>
+      <span class="a4" style="flex:1">40-45 · Wrap</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>The most elegant idea in the zoo</h2>
+    </div>
+    <p class="lede">Every classifier so far drew a boundary as a side effect of something else - logistic regression maximizes likelihood, trees maximize purity, kNN just votes. The SVM is the only animal that optimizes the boundary itself: make the gap between the classes as wide as possible, and let the geometry do the generalizing. It is beautiful math with a practical sting in the tail - and today you will feel both. This is the session where "test whether the fancy thing actually helps" stops being advice and becomes a measured result.</p>
+    <div class="legend">
+      <span class="pill solid">Live - built in session</span>
+      <span class="pill light">Self-study - run after</span>
+      <span class="pill amber">★ The one big idea</span>
+      <span class="pill inkpill">The case: Lumen Skincare</span>
+    </div>
+    <div class="callout win">
+      <strong>★ What you walk out with today</strong>
+      Margin and kernel intuition you can sketch on a whiteboard - the widest street, the curb-touching support vectors, the lift-then-cut kernel trick - plus the two dials (C and gamma) that control it, and the discipline of the honesty demo: LinearSVC ties logistic at ~0.69 ROC-AUC on Lumen while the default RBF kernel manages only ~0.55-0.56. Kernels are a hypothesis about shape, not magic - and you will have the numbers to say so.
+    </div>
+  </section>
+
+  <!-- ============ PART 1: THE WIDEST STREET ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · the margin</span>
+      <h2>The widest street <span class="tag concept">8 min live</span></h2>
+    </div>
+    <p class="lede">Picture two separable classes and every straight line that could split them - there are infinitely many. Which one generalizes best? The SVM's answer: the line with the <strong>widest margin</strong>, the biggest empty street between the classes. New points land with maximum room for error. The few training points that touch the street's curbs are the <strong>support vectors</strong> - they alone pin the boundary in place. And because real data is never cleanly separable, the <strong>soft margin</strong> lets a few points violate the street for a price, with a dial (C) that sets how expensive violations are.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two classes of points separated by the widest street: a solid center line, two dashed curb lines, and circled support vectors touching the curbs.">
+        <style>
+          .svAT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .svAB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .svAN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .svAC { stroke: #D6336C; stroke-width: 2.5; fill: none; }
+          .svAK { stroke: #636D85; stroke-width: 2; stroke-dasharray: 7 5; fill: none; }
+          .svAS { fill: none; stroke: #9C1E52; stroke-width: 2.5; stroke-dasharray: 3 3; }
+        </style>
+        <text class="svAT" x="30" y="28">The widest street - only the curb points matter</text>
+
+        <rect x="30" y="46" width="510" height="290" rx="12" fill="#FDEEF4" stroke="#F2AECB" stroke-width="1.5"/>
+
+        <!-- street: center line + two dashed curbs -->
+        <path class="svAC" d="M60 276 L500 136"/>
+        <path class="svAK" d="M72 314 L512 174"/>
+        <path class="svAK" d="M48 238 L488 98"/>
+
+        <!-- magenta class (upper-left of street) -->
+        <circle cx="150" cy="140" r="5" fill="#D6336C"/>
+        <circle cx="230" cy="115" r="5" fill="#D6336C"/>
+        <circle cx="120" cy="90" r="5" fill="#D6336C"/>
+        <circle cx="330" cy="80" r="5" fill="#D6336C"/>
+        <circle cx="400" cy="70" r="5" fill="#D6336C"/>
+        <circle cx="200" cy="174" r="5" fill="#D6336C"/>
+        <circle cx="340" cy="129" r="5" fill="#D6336C"/>
+
+        <!-- cyan class (lower-right of street) -->
+        <circle cx="110" cy="316" r="5" fill="#0CA4B8"/>
+        <circle cx="190" cy="310" r="5" fill="#0CA4B8"/>
+        <circle cx="280" cy="290" r="5" fill="#0CA4B8"/>
+        <circle cx="430" cy="260" r="5" fill="#0CA4B8"/>
+        <circle cx="330" cy="300" r="5" fill="#0CA4B8"/>
+        <circle cx="160" cy="270" r="5" fill="#0CA4B8"/>
+        <circle cx="380" cy="200" r="5" fill="#0CA4B8"/>
+
+        <!-- circled support vectors (on the curbs) -->
+        <circle class="svAS" cx="200" cy="174" r="11"/>
+        <circle class="svAS" cx="340" cy="129" r="11"/>
+        <circle class="svAS" cx="160" cy="270" r="11"/>
+        <circle class="svAS" cx="380" cy="200" r="11"/>
+
+        <!-- right annotation panel -->
+        <rect x="565" y="46" width="285" height="86" rx="10" fill="#E5F6F8" stroke="#0CA4B8" stroke-width="1.5"/>
+        <text class="svAB" x="580" y="70">The street</text>
+        <text class="svAN" x="580" y="88">solid line = the boundary,</text>
+        <text class="svAN" x="580" y="104">dashed lines = the curbs.</text>
+        <text class="svAN" x="580" y="120">Wider street = safer calls.</text>
+
+        <rect x="565" y="146" width="285" height="86" rx="10" fill="#FDEEF4" stroke="#F2AECB" stroke-width="1.5"/>
+        <text class="svAB" x="580" y="170">Support vectors</text>
+        <text class="svAN" x="580" y="188">the circled points touching</text>
+        <text class="svAN" x="580" y="204">the curbs - they alone</text>
+        <text class="svAN" x="580" y="220">define where the street goes.</text>
+
+        <rect x="565" y="246" width="285" height="90" rx="10" fill="none" stroke="#C9CEDD" stroke-width="1.5"/>
+        <text class="svAB" x="580" y="270">Soft margin</text>
+        <text class="svAN" x="580" y="288">real data overlaps, so a few</text>
+        <text class="svAN" x="580" y="304">points may stand in the street.</text>
+        <text class="svAN" x="580" y="320">C prices each violation.</text>
+
+        <rect x="30" y="364" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="svAN" x="52" y="375">Only the curb-touching points matter - delete the rest of the training data and nothing changes.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the widest street, its curbs, and the circled support vectors that pin it</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Support vectors - the model that forgets almost everything<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>After training, the SVM keeps only the support vectors - the curb-touching points - and throws the rest of the training set away. On a clean problem that can mean keeping dozens of points out of thousands. This is why session 1's zoo map gave the SVM "a foot in both camps": it learns a boundary like a model-based method, but that boundary is <em>defined by remembered training points</em>, like an instance-based method.</p>
+        <p>The practical payoff is memory efficiency: unlike kNN, which ships the whole training set to production, a fitted SVM ships only its support vectors. The conceptual payoff is bigger - it tells you what the SVM believes: the boundary should be decided by the hardest, closest cases, not by the easy points deep inside each class.</p>
+        <div class="callout tip"><strong>Whiteboard line:</strong> "an SVM is a model that remembers only its most awkward customers - because the awkward ones are the ones that define the edge of the business."</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>C - the street-strictness dial<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>C prices margin violations, and the scikit-learn guide gives the cleanest reading of it. <strong>Low C</strong>: violations are cheap, so the model accepts a wide, tolerant street - a smoother, more regularized boundary that may misclassify a few training points on purpose. <strong>High C</strong>: violations are expensive, so the model narrows the street until it fits every training point it can - and starts bending around noise. High C is the SVM's overfitting mode.</p>
+        <p>The sklearn practical-use tip worth memorizing: <strong>if your data is noisy, decrease C</strong>. Noisy labels plus a strict street means the street gets dragged around by mislabeled points. Lumen's ~3% conversion signal is exactly this kind of noisy, overlapping data - which is a hint about how today's demo will go.</p>
+        <p>Notice the pattern from the whole course: C is this animal's complexity knob, exactly as degree was for polynomials, k for kNN, and depth for trees. Same U-curve, new dial.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>StatQuest's framing - why soft margins exist at all<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>StatQuest's SVM Part 1 tells the story in two beats. Beat one: the <em>maximal margin classifier</em> - the widest street with zero violations allowed - is lovely on clean data and terrible in practice, because one outlier standing near the other class drags the entire street toward it. A single weird point should not redraw your boundary.</p>
+        <p>Beat two: allow violations, price them, and pick the width that cross-validates best - the <em>soft margin</em>. That is the actual "support vector classifier" everyone uses. Watch Parts 1-3 after the session; the margin story, the polynomial kernel, and the RBF kernel each get their own episode, and Josh's hand-drawn streets are the best in the business.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2: KERNELS ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · kernels</span>
+      <h2>Kernels - bending the street <span class="tag concept">9 min live</span></h2>
+    </div>
+    <p class="lede">A straight street fails when the true boundary curves - one class wrapped inside another, and no line helps. The SVM's move: <strong>lift the data into a higher dimension where a straight cut works</strong>, cut there, and let the cut project back down as a curve. The famous <strong>kernel trick</strong> makes this affordable: the math only ever needs dot products between points in the lifted space, and a kernel function computes those dot products directly - it never builds the lifted features at all. The <strong>polynomial kernel</strong> lifts with powers up to degree d; the <strong>RBF kernel</strong> lifts with similarity bumps, where <strong>gamma</strong> sets how far one point's influence reaches - and a large gamma means short reach, a wiggly point-wrapping boundary, and overfitting.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 310" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="One-dimensional points that no single cut can separate are lifted to two dimensions by adding x squared, where a straight line separates them.">
+        <style>
+          .svBT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .svBB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .svBN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .svBAx { stroke: #636D85; stroke-width: 2; fill: none; }
+          .svBCut { stroke: #D6336C; stroke-width: 2.5; stroke-dasharray: 7 5; fill: none; }
+          .svBArr { stroke: #1C2233; stroke-width: 2; fill: none; marker-end: url(#svBh); }
+        </style>
+        <defs>
+          <marker id="svBh" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M0,0 L8,4.5 L0,9 z" fill="#1C2233"/>
+          </marker>
+        </defs>
+        <text class="svBT" x="30" y="28">The lift - inseparable in 1D, trivial in 2D</text>
+
+        <!-- left: 1D line -->
+        <rect x="30" y="50" width="370" height="200" rx="10" fill="#FDEEF4" stroke="#F2AECB" stroke-width="1.5"/>
+        <line class="svBAx" x1="55" y1="160" x2="380" y2="160"/>
+        <circle cx="80" cy="160" r="6" fill="#D6336C"/>
+        <circle cx="110" cy="160" r="6" fill="#D6336C"/>
+        <circle cx="180" cy="160" r="6" fill="#0CA4B8"/>
+        <circle cx="215" cy="160" r="6" fill="#0CA4B8"/>
+        <circle cx="250" cy="160" r="6" fill="#0CA4B8"/>
+        <circle cx="325" cy="160" r="6" fill="#D6336C"/>
+        <circle cx="355" cy="160" r="6" fill="#D6336C"/>
+        <text class="svBB" x="55" y="85">One feature x</text>
+        <text class="svBN" x="55" y="200">cyan sits between the magenta</text>
+        <text class="svBN" x="55" y="216">groups - no single cut works</text>
+
+        <!-- arrow -->
+        <path class="svBArr" d="M405 150 L465 150"/>
+        <text class="svBN" x="410" y="132">add x²</text>
+
+        <!-- right: 2D lifted -->
+        <rect x="475" y="50" width="375" height="200" rx="10" fill="#E5F6F8" stroke="#0CA4B8" stroke-width="1.5"/>
+        <line class="svBAx" x1="505" y1="230" x2="825" y2="230"/>
+        <line class="svBAx" x1="505" y1="230" x2="505" y2="66"/>
+        <text class="svBN" x="512" y="80">x²</text>
+        <text class="svBN" x="800" y="245">x</text>
+        <!-- parabola-ish placement: cyan low, magenta high -->
+        <circle cx="630" cy="212" r="6" fill="#0CA4B8"/>
+        <circle cx="662" cy="220" r="6" fill="#0CA4B8"/>
+        <circle cx="695" cy="212" r="6" fill="#0CA4B8"/>
+        <circle cx="540" cy="100" r="6" fill="#D6336C"/>
+        <circle cx="566" cy="140" r="6" fill="#D6336C"/>
+        <circle cx="762" cy="140" r="6" fill="#D6336C"/>
+        <circle cx="790" cy="100" r="6" fill="#D6336C"/>
+        <path class="svBCut" d="M505 178 L845 178"/>
+        <text class="svBB" x="640" y="95">Now one straight</text>
+        <text class="svBB" x="640" y="112">line separates them</text>
+
+        <rect x="30" y="272" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="svBN" x="52" y="283">The kernel computes the lifted dot product without ever building the lift - that is the whole trick.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the lift that turns an impossible 1D cut into an easy 2D one</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Play: RBF on the moons - drag gamma<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Same boundary explorer as sessions 1, 3, 5 and 7 - now with the RBF kernel. Drag gamma on the moons and watch the boundary go from almost-linear (small gamma, long reach, smooth) to wrapping individual points (large gamma, short reach, memorization).</p>
+        <div class="algo-live" data-tool="boundary" data-data="lab" data-algo="rbf"></div>
+        <p>Then switch to Lumen real and notice how little the bending buys you on an overlapping cloud - a preview of the demo's honest ending.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Gamma, C, and the exponential grid<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Gamma is a reach dial.</strong> Small gamma: each support vector's influence stretches far, many points blend into one smooth opinion, the boundary stays calm. Large gamma: influence dies off within a whisker, each point becomes its own island of opinion, and the boundary wiggles around individual training points - the RBF's overfitting mode, the exact cousin of k=1 and depth=None.</p>
+        <p><strong>C and gamma overlap.</strong> Both control model complexity, and their effects interact - a strict street with long-reach bumps can behave like a tolerant street with short-reach bumps. The sklearn guidance: tune them <em>together</em>, on an exponential grid (powers of 10, then refine), never one at a time on a linear grid. In session 9 the fair harness does exactly this with GridSearchCV.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The kernel zoo in one line each<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>scikit-learn ships four built-in kernels for SVC, and one line covers each:</p>
+        <table class="clean">
+          <tr><th>Kernel</th><th>One-liner</th></tr>
+          <tr><td><code>linear</code></td><td>no lift at all - the plain widest street (prefer LinearSVC for speed)</td></tr>
+          <tr><td><code>poly</code></td><td>lifts with feature powers and products up to degree d - global curves</td></tr>
+          <tr><td><code>rbf</code></td><td>lifts with similarity bumps around each point - local curves, the default</td></tr>
+          <tr><td><code>sigmoid</code></td><td>a tanh-shaped similarity - historic neural-net flavored, rarely the right pick</td></tr>
+        </table>
+        <p>Default to linear-first thinking on tabular data, rbf when you have reason to believe the boundary curves. Poly and sigmoid are for when you can articulate why.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3: FINE PRINT ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · the fine print</span>
+      <h2>SVM in practice <span class="tag concept">8 min live</span></h2>
+    </div>
+    <p class="lede">The SVM is the zoo's highest-maintenance animal. It demands scaled features, its kernel solver gets slow fast, and its most tempting parameter (<code>probability=True</code>) is a trap the library itself is now removing. Four pieces of fine print, straight from the sklearn user guide, before you ever put one near production.</p>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Scaling is mandatory - not a suggestion<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The sklearn docs say it plainly: support vector machines are <em>"not scale invariant"</em> and scaling is <em>"highly recommended"</em>. Margins are measured in feature units - if prior_30d_spend runs 0-500 while pages_viewed runs 1-20, the street's width is effectively measured in spend and pages barely counts. You validated the same failure on kNN in session 5 (0.64 scaled vs 0.58 unscaled AUC); distance-based models share this Achilles heel.</p>
+        <p>The idiom to make it un-forgettable: <code>make_pipeline(StandardScaler(), SVC())</code> - the scaler lives inside the pipeline, fit on train only, forever. There is no legitimate SVM workflow without it.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>A team once "proved" SVMs were useless on their pricing data - every kernel scored like a coin flip. One StandardScaler later, the same model was their best single classifier. The postmortem line became team folklore: "we did not test the SVM, we tested our preprocessing."</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Complexity - why 30,000 rows is a problem<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Kernel SVC (libsvm under the hood) solves a quadratic program whose cost scales roughly <strong>O(n²) to O(n³)</strong> with the number of rows. Double the data, pay four to eight times the compute. On Lumen's 30,000 training rows a default RBF fit stops being interactive - so today's demo <strong>subsamples 6,000 rows for the RBF round and says so out loud</strong>. Quietly subsampling is how leaderboards lie; loudly subsampling is engineering.</p>
+        <p><strong>LinearSVC is the escape hatch.</strong> It uses liblinear, not libsvm - no kernel machinery, near-linear scaling, happy on millions of rows. When the boundary you want is straight, you get the full 30k rows AND a faster fit. That asymmetry (linear = all the data, kernel = a sample) is itself a fairness caveat to keep in mind when you read today's results.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The probability=True trap<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>SVMs do not natively produce probabilities - they produce signed distances to the street (<code>decision_function</code>). <code>probability=True</code> bolts probabilities on by running an expensive internal cross-validation (Platt scaling) after the fit, and the sklearn docs warn the results can <em>disagree</em> with <code>decision_function</code> - the argmax of the probabilities can differ from the side of the street the point is on.</p>
+        <p>It is also on its way out: <strong>deprecated in sklearn 1.9, removed in 1.11</strong>. For ranking metrics like ROC-AUC you never needed it anyway - <code>decision_function</code> scores rank points exactly as well, for free. That is what today's demo uses.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>LinearSVC quirks + the imbalance dial<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>LinearSVC is almost-but-not-exactly a linear-kernel SVC: it penalizes the intercept along with the weights (SVC does not), and it optimizes <em>squared</em> hinge loss by default. In practice the differences are small on scaled data, but when the two disagree, this is why - worth knowing before you file a "bug".</p>
+        <p>For imbalanced targets like Lumen's ~3% conversion, <code>class_weight="balanced"</code> re-weights the margin violations so the rare class's mistakes cost more - the SVM family's version of the imbalance handling you met on logistic regression. Try it in the homework grid and see whether it moves the needle.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>SVM meets Lumen - the honesty demo <span class="tag demo">★ 18 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">Two rounds. Round one: LinearSVC, scaled, full features, all 30k training rows - the widest straight street money can buy. Round two: SVC with the RBF kernel on a 6,000-row subsample (the QP cost is why), defaults first, then a couple of gamma/C values. Then we read the result like adults.</p>
+
+    <div class="steps">
+      <div class="step"><p><strong>Fit the straight street.</strong> LinearSVC inside the standard Lumen pipeline. Score with <code>decision_function</code> + ROC-AUC - no probabilities needed for ranking.</p></div>
+      <div class="step"><p><strong>Fit the bendy street.</strong> SVC(kernel="rbf") on 6,000 subsampled training rows, defaults. Say the subsample out loud - it is a documented cost decision, not a secret.</p></div>
+      <div class="step"><p><strong>Poke the dials.</strong> Try a couple of gamma/C values on the RBF. Watch how little moves.</p></div>
+      <div class="step"><p><strong>Read the ending.</strong> The straight line ties logistic. The kernel loses. Explain why before you leave the room.</p></div>
+    </div>
+
+    <div class="prompt-box good">
+      <span class="label">svm_lumen.py - the straight street vs the bendy one</span>import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.svm import LinearSVC, SVC
+from sklearn.metrics import roc_auc_score
+
+df = pd.read_parquet("lumen_sessions.parquet")
+cat = ["channel", "device", "new_vs_returning", "product_category"]
+num = ["pages_viewed", "session_hour", "prior_30d_spend"]
+X, y = df[cat + num], df["converted"]
+
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y)
+
+prep = ColumnTransformer([
+    ("cat", OneHotEncoder(handle_unknown="ignore"), cat),
+    ("num", StandardScaler(), num)])  # scaling is mandatory for SVMs
+
+# Round 1 - LinearSVC (liblinear): scales fine, all 30k training rows
+lin = Pipeline([("prep", prep), ("model", LinearSVC())]).fit(X_tr, y_tr)
+lin_scores = lin.decision_function(X_te)  # NOT probability=True
+print(f"LinearSVC     ROC-AUC {roc_auc_score(y_te, lin_scores):.2f}")
+# LinearSVC     ROC-AUC 0.69  - ties logistic: same linear-boundary family
+
+# Round 2 - kernel SVC (libsvm QP is O(n^2)-O(n^3)): subsample 6,000 rows
+sub_idx = X_tr.sample(6000, random_state=42).index
+rbf = Pipeline([("prep", prep), ("model", SVC(kernel="rbf"))])
+rbf.fit(X_tr.loc[sub_idx], y_tr.loc[sub_idx])
+rbf_scores = rbf.decision_function(X_te)
+print(f"SVC rbf (6k)  ROC-AUC {roc_auc_score(y_te, rbf_scores):.2f}")
+# SVC rbf (6k)  ROC-AUC ~0.55-0.56 with defaults
+
+# Poke the dials - does bending help?
+for gamma in [0.01, 0.05]:
+    for C in [1, 10]:
+        m = Pipeline([("prep", prep),
+                      ("model", SVC(kernel="rbf", gamma=gamma, C=C))])
+        m.fit(X_tr.loc[sub_idx], y_tr.loc[sub_idx])
+        s = m.decision_function(X_te)
+        print(f"rbf g={gamma} C={C}  AUC {roc_auc_score(y_te, s):.2f}")
+# still ~0.55 - on this data, bending the street buys nothing</div>
+
+    <div class="callout win"><strong>The conclusion card - say it exactly like this:</strong> on Lumen's tabular, mostly-linear data the straight street wins: LinearSVC ~0.69 ties logistic regression, because both draw the same shape of boundary. The default RBF manages ~0.55-0.56, and a couple of gamma/C pokes stay ~0.55. Kernels shine when the true boundary curves - the moons in the explorer - and Lumen's does not. Kernels are not magic; they are a hypothesis about shape, and here the hypothesis is wrong.</div>
+    <div class="callout tip"><strong>If your RBF number differs slightly:</strong> the 6,000-row subsample makes round two noisier than usual - a point or two of AUC jitter is expected. The ranking (linear beats default RBF by a mile here) should be rock solid.</div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 9 <span class="tag exercise">◐ 25 min</span></h2>
+    </div>
+    <ul>
+      <li>Tune C in <code>[0.1, 1, 10]</code> for LinearSVC. Does the AUC move? (The sklearn docs note results tend to plateau past a certain C - see if Lumen agrees.)</li>
+      <li>Run the RBF subsample with gamma in <code>[0.01, 0.05]</code> and log every result next to your session numbers - you will feed these into session 9's fair harness.</li>
+      <li>Add <code>class_weight="balanced"</code> to both models. Which metric moves, and which does not?</li>
+      <li>Write two sentences: when would you bet on an RBF kernel <em>before</em> trying it? What would the data have to look like?</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions before you go 🎯 <span class="tag exercise">◐ 90 seconds</span></h2>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1 · What is a support vector?</p>
+      <button class="qopt" type="button">A · any training point the model classified correctly</button>
+      <button class="qopt" type="button">B · a training point touching the street's curb - one of the few points that define the margin; delete every other point and the boundary does not move</button>
+      <button class="qopt" type="button">C · the feature with the largest learned weight</button>
+      <p class="qwhy">The margin is pinned entirely by the curb-touching points. Everything deep inside its own class is irrelevant to the boundary - which is also why a fitted SVM only needs to keep those few points.</p>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">2 · What does a large gamma do to an RBF SVM?</p>
+      <button class="qopt" type="button">A · widens the street, making the boundary smoother and more regularized</button>
+      <button class="qopt" type="button">B · speeds up training by reducing the number of support vectors</button>
+      <button class="qopt" type="button">C · shrinks each point's influence to a short reach, so the boundary wiggles around individual training points - the RBF's overfitting mode</button>
+      <p class="qwhy">Gamma sets how far one point's influence travels. Large gamma = short reach = every point its own island = a boundary that wraps training points and memorizes noise. The same disease as k=1 and depth=None, wearing a new coat.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3 · Why did the demo subsample 6,000 rows for the RBF but give LinearSVC all 30,000?</p>
+      <button class="qopt" type="button">A · kernel SVC solves a QP that scales O(n²)-O(n³) with rows, so 30k is painfully slow; LinearSVC uses liblinear and scales near-linearly to millions</button>
+      <button class="qopt" type="button">B · the RBF kernel becomes numerically unstable beyond 10,000 rows</button>
+      <button class="qopt" type="button">C · LinearSVC needs more data because linear models are higher variance</button>
+      <p class="qwhy">It is purely a compute cost decision, and we said it out loud in the demo. The quadratic-to-cubic scaling of the kernel solver is the SVM's biggest production limitation; the linear solver does not share it.</p>
+    </div>
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ OFFICIAL SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Source material</span>
+      <h2>What this session covers</h2>
+    </div>
+    <p class="lede">Session 8 covers the SVM chapters of the anchor sources: StatQuest's three-part SVM arc for the intuition, and the scikit-learn SVM module (1.4) for the API truth and practical-use tips. Videos, labs, and certificates stay with the official providers.</p>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest SVM Part 1 - main ideas: margin, support vectors, soft margin</span><span class="note">Part 1</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest SVM Part 2 - the polynomial kernel</span><span class="note">Part 2</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest SVM Part 3 - the RBF kernel</span><span class="note">Part 2 + live tool</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.4 - SVC / LinearSVC / SVR roles, C intuition, gamma intuition, kernel functions</span><span class="note">Parts 1-2</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.4 practical tips - scaling mandatory, decrease C for noise, exponential grid, O(n²)-O(n³) complexity, probability=True warning</span><span class="note">Parts 1-3 + demo</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">class_weight for imbalance</span><span class="note">Part 3 card + homework</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">NuSVC / custom kernels / one-class SVM</span><span class="note">not covered by design - niche parameterizations</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 8 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>The widest street</b><span>Of all separating lines, pick the one with the widest margin. Soft margin: allow priced violations, because real data overlaps.</span></div>
+      <div class="cheat-item"><b>Support vectors</b><span>The curb-touching points - they alone define the boundary. The fitted model keeps only them; everything else is deletable.</span></div>
+      <div class="cheat-item"><b>The C dial</b><span>Low C = wide tolerant street, smoother, more regularized. High C = narrow strict street, overfit risk. Noisy data: decrease C.</span></div>
+      <div class="cheat-item"><b>The gamma dial</b><span>How far one point's influence reaches. Large gamma = short reach = wiggly point-wrapping boundary = overfitting. Tune C and gamma together, exponential grid.</span></div>
+      <div class="cheat-item"><b>The kernel trick</b><span>Lift data to a space where a line works - but compute only the lifted dot products via the kernel, never the lifted features themselves.</span></div>
+      <div class="cheat-item"><b>Scale first, always</b><span>SVMs are not scale invariant. make_pipeline(StandardScaler(), SVC()) - no exceptions.</span></div>
+      <div class="cheat-item"><b>The honest ending</b><span>LinearSVC ~0.69 ties logistic on Lumen; default RBF (6k subsample) ~0.55-0.56 and stays ~0.55 after pokes. Kernels are a hypothesis about shape, not magic.</span></div>
+      <div class="cheat-item"><b>Ranking without probabilities</b><span>Use decision_function + roc_auc_score. probability=True is expensive, can disagree with the boundary, and is deprecated in sklearn 1.9 (gone in 1.11).</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>Session 8 of 10 · learn-classification-regression-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="c7-decision-trees.html">← Prev: Decision trees</a> &nbsp;·&nbsp; <a href="c9-choosing-your-model.html">Next: Choosing your model →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/algo-live.js?v=1"></script>
+</body>
+</html>

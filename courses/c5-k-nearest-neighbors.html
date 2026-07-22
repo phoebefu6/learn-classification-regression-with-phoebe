@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session 5 · k-nearest neighbors - learn classification and regression with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-classification-regression-with-phoebe</a> / Session 5 of 10</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Classification &amp; Regression with Phoebe · Session 5 of 10</div>
+    <h1>k-nearest neighbors - <span class="accent">just ask the neighbors</span></h1>
+    <p class="sub">Every animal so far learned something: linear regression learned a slope, logistic learned weights, gradient descent showed you the learning itself. Today's animal learns nothing. kNN stores the training data and, when a new Lumen session arrives, finds the k most similar past sessions and lets them vote. That is the whole algorithm - and it hides two of the most instructive lessons in the zoo: k is a bias-variance dial you can feel with your hands, and distance-based models live or die by feature scaling. By the end you will have swept k from 1 (a coin flip) to 101 (kNN's ceiling here, ~0.64 AUC), proven the scaling effect with real numbers, and met the curse of dimensionality face to face.</p>
+    <div class="chip-row">
+      <span class="chip level">🟡 Core zoo</span>
+      <span class="chip audience">Builders · DA / DE / DS</span>
+      <span class="chip audience">Python · scikit-learn</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Setup</span>
+      <span class="a2" style="flex:3">3-18 · Neighbors, k, and distance</span>
+      <span class="a3" style="flex:5">18-40 · Build: the k sweep</span>
+      <span class="a4" style="flex:1">40-45 · Wrap</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>The first instance-based animal</h2>
+    </div>
+    <p class="lede">Session 1 drew the zoo map with two families: model-based animals compress the data into learned numbers, instance-based animals keep the data and look things up. kNN is the purest instance-based animal there is - there is no training step at all. <code>.fit()</code> just files the rows away. All the work happens at prediction time: measure the distance from the new point to every stored point, take the k closest, and vote (classification) or average (regression). No loss function, no descent, no coefficients to read - which means every ounce of its behavior comes from three choices you make: k, the distance metric, and how you scale the features.</p>
+    <div class="legend">
+      <span class="pill solid">Live - built in session</span>
+      <span class="pill light">Self-study - run after</span>
+      <span class="pill amber">★ The one big idea</span>
+      <span class="pill inkpill">The case: Lumen Skincare</span>
+    </div>
+    <div class="callout win">
+      <strong>★ What you walk out with today</strong>
+      You will choose k with your eyes open - having watched k=1 memorize its way to a coin flip (0.50 AUC) and k=101 smooth its way to kNN's ceiling here (~0.64) - and you will never ship an unscaled distance model again, because you will have measured exactly what skipping the scaler costs on Lumen: 0.64 down to 0.58. Plus kNN regression, the curse of dimensionality, and the honest reason kNN sits below logistic on our leaderboard.
+    </div>
+  </section>
+
+  <!-- ============ PART 1: NO TRAINING STEP ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · the idea</span>
+      <h2>The algorithm with no training step <span class="tag concept">7 min live</span></h2>
+    </div>
+    <p class="lede">Here is the entire mechanism. Store every training row. When a new session arrives, compute its distance to all stored rows, keep the k nearest, and let them decide: majority vote for a class, average for a number. The "model" you deploy is literally the training set plus a lookup rule - which is why session 1 called kNN "non-generalizing": it never compresses the data into a generalization, it remembers.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A new query point surrounded by a dashed distance circle that reaches its 5 nearest neighbors: 3 magenta converters and 2 cyan non-converters, so the vote predicts magenta.">
+        <style>
+          .knAT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .knAB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .knAN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .knAM { font: 700 12px Inter, sans-serif; fill: #D6336C; }
+          .knAL { stroke: #C9CEDD; stroke-width: 1.5; }
+        </style>
+        <defs>
+          <marker id="knAh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0 0 L6 3 L0 6 Z" fill="#D6336C"/>
+          </marker>
+        </defs>
+        <text class="knAT" x="30" y="28">One prediction, k=5: measure, rank, vote</text>
+
+        <rect x="30" y="46" width="520" height="234" rx="12" fill="none" stroke="#C9CEDD" stroke-width="1.5"/>
+
+        <line class="knAL" x1="270" y1="163" x2="212" y2="122"/>
+        <line class="knAL" x1="270" y1="163" x2="322" y2="112"/>
+        <line class="knAL" x1="270" y1="163" x2="232" y2="216"/>
+        <line class="knAL" x1="270" y1="163" x2="330" y2="200"/>
+        <line class="knAL" x1="270" y1="163" x2="202" y2="176"/>
+
+        <circle cx="270" cy="163" r="86" fill="none" stroke="#636D85" stroke-width="1.5" stroke-dasharray="5 4"/>
+
+        <circle cx="212" cy="122" r="5" fill="#D6336C"/>
+        <circle cx="322" cy="112" r="5" fill="#D6336C"/>
+        <circle cx="232" cy="216" r="5" fill="#D6336C"/>
+        <circle cx="330" cy="200" r="5" fill="#0CA4B8"/>
+        <circle cx="202" cy="176" r="5" fill="#0CA4B8"/>
+
+        <circle cx="80" cy="86" r="4" fill="#0CA4B8"/>
+        <circle cx="120" cy="240" r="4" fill="#0CA4B8"/>
+        <circle cx="470" cy="90" r="4" fill="#D6336C"/>
+        <circle cx="500" cy="180" r="4" fill="#0CA4B8"/>
+        <circle cx="440" cy="245" r="4" fill="#D6336C"/>
+        <circle cx="70" cy="160" r="4" fill="#0CA4B8"/>
+
+        <circle cx="270" cy="163" r="7" fill="#FDEEF4" stroke="#1C2233" stroke-width="2.5"/>
+        <text class="knAB" x="284" y="152">new session ?</text>
+        <text class="knAN" x="330" y="262">dashed circle = distance to the 5th neighbor</text>
+
+        <rect x="580" y="46" width="270" height="234" rx="12" fill="#FDEEF4" stroke="#F2AECB" stroke-width="1.5"/>
+        <text class="knAB" x="596" y="74">The vote (k=5)</text>
+        <circle cx="604" cy="100" r="5" fill="#D6336C"/>
+        <text class="knAN" x="618" y="104">converted neighbors: 3</text>
+        <circle cx="604" cy="128" r="5" fill="#0CA4B8"/>
+        <text class="knAN" x="618" y="132">not-converted neighbors: 2</text>
+        <line x1="596" y1="152" x2="820" y2="152" stroke="#F2AECB" stroke-width="1.5"/>
+        <line x1="604" y1="180" x2="660" y2="180" stroke="#D6336C" stroke-width="2.5" marker-end="url(#knAh)"/>
+        <text class="knAM" x="672" y="184">predict: converts</text>
+        <text class="knAN" x="596" y="216">Regression flavor: same 5</text>
+        <text class="knAN" x="596" y="232">neighbors, average their</text>
+        <text class="knAN" x="596" y="248">order values instead.</text>
+
+        <rect x="30" y="300" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="knAN" x="52" y="311">The model IS the training set - fit() files rows away, and every prediction is a fresh lookup among them.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - one kNN prediction from start to finish</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>The vote, and how to weight it<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Default kNN uses <code>weights="uniform"</code>: each of the k neighbors gets exactly one vote, whether it sits right on top of the query or way out at the edge of the neighborhood. The alternative, <code>weights="distance"</code>, weights each vote by 1/distance - closer neighbors count more, far ones fade.</p>
+        <p>Distance weighting softens the biggest annoyance of uniform voting: a neighborhood where 51 lukewarm far-away neighbors outvote 50 near-identical ones. It also makes predictions vary more smoothly as k grows, because adding one more distant neighbor barely moves the answer. You will try it in the homework at k=25 and see whether it buys anything on Lumen.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>What "distance" means - euclidean, manhattan, minkowski<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>sklearn's default metric is <strong>minkowski with p=2</strong>, which is just euclidean distance - the straight-line ruler. Set p=1 and you get <strong>manhattan</strong> distance: sum of the absolute differences per feature, the "walk the city grid" ruler that is gentler on single-feature outliers. Any p in between (or beyond) is the general minkowski family.</p>
+        <p>On Lumen the choice barely moves the needle - the features are few and, after scaling, comparable. The metric matters more in high dimensions or on features with heavy tails. The knob to remember: <code>KNeighborsClassifier(metric="minkowski", p=1)</code> flips you to manhattan without changing anything else.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The tie warning in the docs<span class="mini">1 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A subtle honesty note straight from the sklearn neighbors guide: if the k-th and (k+1)-th neighbors sit at <em>exactly</em> the same distance but carry different labels, which one makes the cut depends on the ordering of the training data. Rare with continuous features, more common with one-hot grids where many points share coordinates - and worth knowing before you chase a "non-deterministic model" ghost in a debugging session.</p>
+        <p>Practical hygiene: prefer odd k for binary problems so the vote itself cannot tie.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Production memory - the bill for skipping training<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>No training step sounds free until deployment day: kNN ships the training data <em>as</em> the model. Every prediction scans (or tree-searches) the stored rows, so prediction cost grows with training size - the exact opposite of logistic regression, which trains slowly-ish once and then predicts with a handful of multiplications forever.</p>
+        <p>This is session 1's fraud-team story coming home: the 40 GB kNN scorer next to the kilobyte logistic model. Same accuracy conversation, wildly different memory bill.</p>
+        <div class="callout tip"><strong>Rule of thumb:</strong> kNN is a superb prototyping and sanity-check model, and a defensible production model only when the training set is small, low-dimensional, and rarely refreshed.</div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2: THE K DIAL ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · the dial</span>
+      <h2>k is the bias-variance dial <span class="tag concept">9 min live</span></h2>
+    </div>
+    <p class="lede">Every algorithm has a flexibility knob - intro-ml drew the U-curve with tree depth, session 2 blew it up with polynomial degree. kNN's knob is k, and it runs backwards from the others: <strong>small k = maximum flexibility</strong> (each prediction trusts one loud neighbor), <strong>large k = maximum smoothing</strong> (each prediction polls a whole district). Here is the dial swept on Lumen, full features, scaled, test ROC-AUC:</p>
+
+    <table class="clean">
+      <tr><th>k</th><th>Test ROC-AUC</th><th>What the dial is doing</th></tr>
+      <tr><td>1</td><td>0.504</td><td>a coin flip - pure memorization of noise</td></tr>
+      <tr><td>5</td><td>0.533</td><td>still trusting tiny, noisy crowds</td></tr>
+      <tr><td>25</td><td>0.592</td><td>smoothing starts to pay</td></tr>
+      <tr><td>101</td><td>0.640</td><td>kNN's ceiling on this data</td></tr>
+    </table>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Play: the k dial on the boundary explorer<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Drag k on the moons - watch the boundary wrap around every stray point at k=1 (memorization) and blur into an over-smoothed blob by k=75.</p>
+        <div class="algo-live" data-tool="boundary" data-data="lab" data-algo="knn"></div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Why k=1 memorizes - and why that reads as a coin flip<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>At k=1, every training point's nearest neighbor is <em>itself</em>, so training accuracy is essentially perfect - the model has memorized the data, noise and all. But a new session lands next to whichever old session happens to sit closest, and at Lumen's ~3% conversion rate in a crowded feature space, that single neighbor is nearly uninformative: test AUC 0.504, statistically a coin flip.</p>
+        <p>This is the sharpest overfitting demonstration in the whole course precisely because nothing was "trained": memorization is not a training pathology, it is a flexibility pathology. Any model flexible enough to store the data will happily do so.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Big k smooths - the sklearn guidance<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The sklearn guide's advice on choosing k is refreshingly plain: a larger k suppresses the effects of noise, but makes the classification boundaries less distinct. On clean, balanced data you would tune k somewhere modest. On imbalanced data like Lumen - roughly 1 converter per 30 sessions - a converter's local neighborhood is mostly non-converters, so small k drowns the signal in noise and large k keeps helping: 0.504 → 0.533 → 0.592 → 0.640 across our sweep.</p>
+        <p>But the dial does not rise forever - crank k far enough and every neighborhood contains the same city-wide average, boundaries blur, and performance slides back down. You saw exactly that over-smoothing on the moons at k=75. Where the peak sits is an empirical question, which is homework.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>kNN regression - the whole dial in one row<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Swap the vote for an average and kNN predicts numbers: <code>KNeighborsRegressor</code> on the 1,306 Lumen buyers, predicting order value. The k sweep tells the entire bias-variance story in four values of R²:</p>
+        <table class="clean">
+          <tr><th>k</th><th>Test R²</th><th>Reading</th></tr>
+          <tr><td>1</td><td>-0.10</td><td>worse than predicting the mean!</td></tr>
+          <tr><td>5</td><td>0.40</td><td>usable</td></tr>
+          <tr><td>25</td><td>0.46</td><td>the peak</td></tr>
+          <tr><td>101</td><td>0.39</td><td>over-smoothed - averaging too broad a crowd</td></tr>
+        </table>
+        <p>Note the two failure modes bracket the peak: k=1 memorizes (negative R² - you would score better predicting $73 for everyone), k=101 over-smooths (every prediction drifts toward the global mean). Same U-curve as tree depth and polynomial degree, third costume.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3: SCALING AND THE CURSE ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · the fine print</span>
+      <h2>Scaling and the curse <span class="tag concept">7 min live</span></h2>
+    </div>
+    <p class="lede">Distance treats every unit as equal. On Lumen, <code>prior_30d_spend</code> runs 0-400 while <code>pages_viewed</code> runs 1-15 - so in raw units, a $50 spend difference dwarfs a 10-page browsing difference, and "nearest" quietly becomes "nearest in spend, pages be damned". Standardize both to mean 0 and SD 1 and the vote becomes fair. This is not a style preference; on Lumen it is worth six points of AUC: <strong>scaled k=101 hits 0.64, unscaled 0.58</strong>.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two panels comparing neighborhoods: unscaled features give a stretched flat neighborhood dominated by the spend axis, scaled features give a round neighborhood where both features count.">
+        <style>
+          .knBT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .knBB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .knBN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+        </style>
+        <text class="knBT" x="30" y="28">The same neighborhood, before and after StandardScaler</text>
+
+        <rect x="30" y="46" width="395" height="220" rx="12" fill="#FDEEF4" stroke="#F2AECB" stroke-width="1.5"/>
+        <text class="knBB" x="46" y="72">Unscaled - spend drowns pages</text>
+        <line x1="60" y1="240" x2="400" y2="240" stroke="#636D85" stroke-width="1.5"/>
+        <line x1="60" y1="240" x2="60" y2="92" stroke="#636D85" stroke-width="1.5"/>
+        <text class="knBN" x="230" y="257">spend $0-400</text>
+        <text class="knBN" x="46" y="88">pages 1-15</text>
+        <ellipse cx="230" cy="166" rx="145" ry="14" fill="none" stroke="#D6336C" stroke-width="2" stroke-dasharray="5 4"/>
+        <circle cx="230" cy="166" r="6" fill="#FDEEF4" stroke="#1C2233" stroke-width="2.5"/>
+        <circle cx="150" cy="168" r="4" fill="#0CA4B8"/>
+        <circle cx="300" cy="163" r="4" fill="#0CA4B8"/>
+        <circle cx="345" cy="169" r="4" fill="#D6336C"/>
+        <circle cx="235" cy="120" r="4" fill="#D6336C"/>
+        <circle cx="225" cy="210" r="4" fill="#D6336C"/>
+        <text class="knBN" x="100" y="145">a 3-page gap looks huge,</text>
+        <text class="knBN" x="100" y="200">a $100 gap looks tiny</text>
+
+        <rect x="455" y="46" width="395" height="220" rx="12" fill="#E5F6F8" stroke="#0CA4B8" stroke-width="1.5"/>
+        <text class="knBB" x="471" y="72">Scaled - both features count</text>
+        <line x1="485" y1="240" x2="825" y2="240" stroke="#636D85" stroke-width="1.5"/>
+        <line x1="485" y1="240" x2="485" y2="92" stroke="#636D85" stroke-width="1.5"/>
+        <text class="knBN" x="640" y="257">spend, standardized</text>
+        <text class="knBN" x="471" y="88">pages, standardized</text>
+        <circle cx="655" cy="165" r="58" fill="none" stroke="#0CA4B8" stroke-width="2" stroke-dasharray="5 4"/>
+        <circle cx="655" cy="165" r="6" fill="#E5F6F8" stroke="#1C2233" stroke-width="2.5"/>
+        <circle cx="625" cy="135" r="4" fill="#D6336C"/>
+        <circle cx="690" cy="145" r="4" fill="#D6336C"/>
+        <circle cx="640" cy="200" r="4" fill="#0CA4B8"/>
+        <circle cx="760" cy="120" r="4" fill="#0CA4B8"/>
+        <circle cx="545" cy="210" r="4" fill="#D6336C"/>
+        <text class="knBN" x="720" y="200">round neighborhoods,</text>
+        <text class="knBN" x="720" y="216">honest distances</text>
+
+        <rect x="30" y="290" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="knBN" x="52" y="301">Scale first or the biggest unit picks the neighbors. On Lumen the difference is measured: AUC 0.58 vs 0.64.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - why StandardScaler is mandatory for distance models</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The scaling proof, in numbers<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Same pipeline, same k=101, one change - pass the numerics through raw instead of standardizing them - and test AUC drops from <strong>0.64 to 0.58</strong>. Nothing else moved. In the unscaled run, <code>prior_30d_spend</code>'s 0-400 range dominates every distance computation, so the neighbor sets are effectively chosen by spend alone; pages, hour, and most of the one-hot signal get shouted down.</p>
+        <p>The fix is one line in the <code>ColumnTransformer</code>, and the discipline you already own from intro-ml applies: the scaler lives <em>inside</em> the pipeline and is fit on train only, so no test-set statistics leak in.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>A retention team once "upgraded" a churn model's spend feature from dollars to cents for consistency with the billing system - and their kNN scorer's recall quietly cratered. Multiplying one feature by 100 rewrote every neighborhood in the model. Nobody touched the algorithm; everybody trusted the units. Distance models make your unit choices load-bearing.</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>brute, kd_tree, ball_tree - how sklearn finds neighbors fast<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Naively, each prediction compares the query to all N stored rows - <code>algorithm="brute"</code>, exact and fine for small data. For bigger data sklearn can pre-organize the rows into a <strong>kd_tree</strong> (splits space along coordinate axes; shines in low dimensions) or a <strong>ball_tree</strong> (nests points inside hyperspheres; holds up better as dimensions climb). Both prune away whole regions that provably cannot contain a nearest neighbor.</p>
+        <p>The default <code>algorithm="auto"</code> chooses for you, and its rules are worth knowing: it falls back to brute force when the data is sparse or when dimensionality is high (above 15 or so, tree structures stop paying for themselves - our one-hot-heavy Lumen matrix is exactly that case). The <code>leaf_size</code> knob (default 30) tunes when the trees stop splitting and hand over to brute force at the leaves - it affects speed and memory, never the predictions.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The curse of dimensionality<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Distance-based reasoning degrades as dimensions pile up. In high-dimensional space, everything is far from everything - the volume grows so fast that your training points become lonely, and the gap between the nearest and farthest neighbor shrinks until "nearest" barely means anything. The vote is only as good as the neighbors' relevance, and in high dimensions relevance thins out.</p>
+        <p>Lumen after one-hot encoding lives in roughly 20 dimensions - modest, but enough to blunt the tool. That, plus the harsh class imbalance, is the honest reason kNN tops out at 0.64 here while logistic - which learns a global pattern instead of trusting local crowds - reaches 0.69. Not a broken model; a mismatched one. Session 9 turns this instinct into a checklist.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>The k sweep, scaled and unscaled, both tasks <span class="tag demo">★ 18 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">One script, three experiments: sweep k on the classifier and watch the dial climb from coin flip to ceiling, rerun the winner without scaling to price the mistake, then sweep the regressor on the 1,306 buyers and watch the same U-curve appear in R².</p>
+
+    <div class="steps">
+      <div class="step"><p><strong>Build the pipeline.</strong> The same <code>ColumnTransformer</code> as session 1 - one-hot the categoricals, standardize the numerics - with <code>KNeighborsClassifier</code> at the end. The scaler inside the pipeline is the whole ballgame today.</p></div>
+      <div class="step"><p><strong>Sweep the classifier.</strong> Loop k over 1, 5, 25, 101 and print test ROC-AUC. Watch memorization at k=1 become smoothing by k=101.</p></div>
+      <div class="step"><p><strong>Price the unscaled sin.</strong> Swap the scaler for <code>"passthrough"</code>, rerun k=101, and watch six points of AUC evaporate.</p></div>
+      <div class="step"><p><strong>Sweep the regressor.</strong> Same dial on the buyers subset with <code>KNeighborsRegressor</code> - k=1 goes <em>negative</em>, k=25 peaks.</p></div>
+    </div>
+
+    <div class="prompt-box good">
+      <span class="label">knn_sweep.py - the whole session in one script</span>import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.metrics import roc_auc_score, r2_score
+
+df = pd.read_parquet("lumen_sessions.parquet")
+cat = ["channel", "device", "new_vs_returning", "product_category"]
+num = ["pages_viewed", "session_hour", "prior_30d_spend"]
+X, y = df[cat + num], df["converted"]
+
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y)
+
+prep = ColumnTransformer([
+    ("cat", OneHotEncoder(handle_unknown="ignore"), cat),
+    ("num", StandardScaler(), num)])
+
+for k in [1, 5, 25, 101]:
+    pipe = Pipeline([("prep", prep),
+                     ("knn", KNeighborsClassifier(n_neighbors=k))]).fit(X_tr, y_tr)
+    proba = pipe.predict_proba(X_te)[:, 1]
+    print(f"k={k:3d}  ROC-AUC {roc_auc_score(y_te, proba):.3f}")
+
+# k=  1  ROC-AUC 0.504   &lt;- memorization = coin flip
+# k=  5  ROC-AUC 0.533
+# k= 25  ROC-AUC 0.592
+# k=101  ROC-AUC 0.640   &lt;- kNN's ceiling here
+
+# Experiment 2: same model, numerics passed through UNSCALED
+prep_raw = ColumnTransformer([
+    ("cat", OneHotEncoder(handle_unknown="ignore"), cat),
+    ("num", "passthrough", num)])
+pipe = Pipeline([("prep", prep_raw),
+                 ("knn", KNeighborsClassifier(n_neighbors=101))]).fit(X_tr, y_tr)
+print(f"unscaled k=101  ROC-AUC "
+      f"{roc_auc_score(y_te, pipe.predict_proba(X_te)[:, 1]):.2f}")
+
+# unscaled k=101  ROC-AUC 0.58   &lt;- the biggest unit picked the neighbors
+
+# Experiment 3: kNN regression on the buyers (n=1,306)
+buyers = df[df["converted"] == 1]
+bcat = ["product_category", "channel", "new_vs_returning"]
+Xb, yb = buyers[bcat + ["prior_30d_spend"]], buyers["order_value"]
+Xb_tr, Xb_te, yb_tr, yb_te = train_test_split(
+    Xb, yb, test_size=0.25, random_state=42)
+
+prep_b = ColumnTransformer([
+    ("cat", OneHotEncoder(handle_unknown="ignore"), bcat),
+    ("num", StandardScaler(), ["prior_30d_spend"])])
+
+for k in [1, 5, 25, 101]:
+    pipe = Pipeline([("prep", prep_b),
+                     ("knn", KNeighborsRegressor(n_neighbors=k))]).fit(Xb_tr, yb_tr)
+    print(f"k={k:3d}  R2 {r2_score(yb_te, pipe.predict(Xb_te)):.2f}")
+
+# k=  1  R2 -0.10   &lt;- worse than predicting the mean!
+# k=  5  R2 0.40
+# k= 25  R2 0.46    &lt;- the peak
+# k=101  R2 0.39    &lt;- over-smoothed</div>
+
+    <div class="callout tip"><strong>If your numbers differ in the 3rd decimal:</strong> normal library-version jitter. If the unscaled run does NOT drop below the scaled run, check that <code>"passthrough"</code> actually replaced the scaler - a scaler accidentally left upstream of the split is the classic false negative here.</div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 6 <span class="tag exercise">◐ 25 min</span></h2>
+    </div>
+    <ul>
+      <li>Find the k that maximizes test AUC somewhere between 25 and 101: sweep a finer grid and plot AUC vs k. Does the curve keep climbing to 101, or peak and dip before it?</li>
+      <li>Rerun k=25 with <code>weights="distance"</code>. Does letting closer neighbors count more help on Lumen? One sentence on why or why not.</li>
+      <li>Count the nonzero one-hot dimensions for a typical Lumen row (hint: <code>prep.fit_transform(X_tr)[0]</code>). How many of the ~20 dimensions does one session actually occupy? That sparsity is your curse-of-dimensionality intuition made concrete.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions before you go 🎯 <span class="tag exercise">◐ 90 seconds</span></h2>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1 · kNN with k=1 scores ~0.50 test AUC on Lumen - a coin flip. Why?</p>
+      <button class="qopt" type="button">A · the data is too small for kNN to train properly</button>
+      <button class="qopt" type="button">B · at k=1 every training point is its own nearest neighbor, so the model memorizes noise perfectly and generalizes not at all</button>
+      <button class="qopt" type="button">C · ROC-AUC cannot be computed for instance-based models</button>
+      <p class="qwhy">There is no training to go wrong - k=1 is a flexibility pathology. Train accuracy is essentially perfect (each point predicts itself), while a new session inherits the label of one nearly-random neighbor: 0.504 AUC, statistically a coin flip.</p>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">2 · Standardizing the numerics moved k=101 from 0.58 to 0.64 AUC. What was going wrong before?</p>
+      <button class="qopt" type="button">A · unscaled features make the vote count wrong</button>
+      <button class="qopt" type="button">B · OneHotEncoder cannot run next to raw numerics</button>
+      <button class="qopt" type="button">C · raw distances were dominated by prior_30d_spend's big 0-400 range, so "nearest" effectively ignored the smaller-unit features</button>
+      <p class="qwhy">Distance treats every unit as equal, so the feature with the biggest range picks the neighbors. Standardizing puts spend, pages, and hour on the same footing - worth six points of AUC on Lumen, measured, not asserted.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3 · In the regression sweep, k=101 (R² 0.39) fell below k=25 (R² 0.46). What happened?</p>
+      <button class="qopt" type="button">A · over-smoothing - averaging too broad a crowd pulls every prediction toward the global mean, blurring real local differences</button>
+      <button class="qopt" type="button">B · underfitting from too few neighbors</button>
+      <button class="qopt" type="button">C · the test set was too small at that k</button>
+      <p class="qwhy">The dial has two bad ends: k=1 memorizes (R² -0.10, worse than predicting the mean) and k=101 over-smooths. The peak in between - k=25, R² 0.46 - is the bias-variance sweet spot, found by validation, never by faith.</p>
+    </div>
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ OFFICIAL SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Source material</span>
+      <h2>What this session covers</h2>
+    </div>
+    <p class="lede">Session 5 covers the kNN material from the anchor sources - the StatQuest episode and the sklearn nearest-neighbors guide. Videos and full API references stay with the official providers.</p>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest: K-Nearest Neighbors - the whole episode</span><span class="note">Parts 1-2</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.6: KNeighborsClassifier and KNeighborsRegressor</span><span class="note">Parts 1-2 + demo</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.6: choice of k - larger k suppresses noise, blurs boundaries</span><span class="note">Part 2</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.6: weights - uniform vs distance</span><span class="note">Part 1 + homework</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">sklearn 1.6: brute / kd_tree / ball_tree, auto rules, leaf_size</span><span class="note">one self-study card</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Curse of dimensionality - why kNN thins out in high dimensions</span><span class="note">Part 3</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">sklearn 1.6: tie warning - equal-distance neighbors depend on data order</span><span class="note">one self-study card</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Feature scaling for distance models - taught here with the 0.58 vs 0.64 proof, though the tip officially lives in sklearn's preprocessing docs, not the neighbors page</span><span class="note">Part 3, honestly sourced</span></div>
+      <div class="covered-row"><span class="status pill light">✗</span><span class="name">NCA, radius-based classifier, nearest-centroid</span><span class="note">not covered by design</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 5 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>No training step</b><span>fit() stores the data; prediction = find k nearest, vote (classify) or average (regress). The model IS the training set - flexibility for memory and prediction speed.</span></div>
+      <div class="cheat-item"><b>The k dial</b><span>Small k = flexible = memorizes; big k = smooth = blurs. Lumen sweep: k=1 → 0.50 (coin flip), k=5 → 0.53, k=25 → 0.59, k=101 → 0.64 AUC.</span></div>
+      <div class="cheat-item"><b>Scale or die</b><span>Distance models require StandardScaler inside the pipeline: k=101 scores 0.64 scaled vs 0.58 unscaled. The biggest unit picks the neighbors otherwise.</span></div>
+      <div class="cheat-item"><b>Curse of dimensionality</b><span>In high dimensions everything is far from everything and "nearest" loses meaning. Lumen's ~20 one-hot dims + imbalance = why kNN tops out at 0.64 vs logistic's 0.69.</span></div>
+      <div class="cheat-item"><b>kNN regression</b><span>Average the neighbors: k=1 → R² -0.10 (worse than the mean!), k=25 → 0.46 (peak), k=101 → 0.39 (over-smoothed). Same U-curve, third costume.</span></div>
+      <div class="cheat-item"><b>Fast lookup</b><span>algorithm="auto" picks brute vs kd_tree vs ball_tree; brute wins when dims &gt; ~15 or data is sparse; leaf_size tunes speed, never predictions.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>Session 5 of 10 · learn-classification-regression-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="c4-gradient-descent.html">← Prev: Gradient descent</a> &nbsp;·&nbsp; <a href="c6-naive-bayes.html">Next: Naive Bayes →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/algo-live.js?v=1"></script>
+</body>
+</html>

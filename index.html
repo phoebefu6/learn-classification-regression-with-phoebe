@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>learn classification and regression with phoebe - the supervised algorithm zoo</title>
+<link rel="stylesheet" href="assets/style.css?v=1">
+<style>
+  .stats-row { display: flex; gap: 2.4rem; margin-top: 1.5rem; flex-wrap: wrap; }
+  .stat b { display: block; font-size: 2.1rem; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: .72rem; opacity: .85; text-transform: uppercase; letter-spacing: .09em; font-weight: 600; }
+
+  .course-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+  .course-card {
+    border: 1px solid var(--hairline);
+    border-top: 4px solid var(--diff, var(--indigo));
+    border-radius: var(--radius);
+    padding: 1.2rem 1.3rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    text-decoration: none;
+    color: var(--ink);
+    background: #fff;
+    transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+    position: relative;
+  }
+  .course-card:hover { border-color: var(--indigo-soft); border-top-color: var(--diff, var(--indigo)); box-shadow: 0 8px 28px rgba(214,51,108,.16); transform: translateY(-3px); }
+  .course-card .cicon { font-size: 1.7rem; line-height: 1; }
+  .course-card .cnum { font-size: .72rem; font-weight: 700; color: var(--indigo); text-transform: uppercase; letter-spacing: .1em; }
+  .course-card h3 { font-size: 1.05rem; font-weight: 800; line-height: 1.3; }
+  .course-card p { font-size: .85rem; color: var(--muted); flex: 1; }
+  .course-card .meta { display: flex; gap: .4rem; flex-wrap: wrap; }
+
+  .diff-legend { display: flex; gap: 1rem; margin-top: 1.6rem; font-size: .74rem; color: var(--muted); font-weight: 600; flex-wrap: wrap; }
+  .diff-legend i { display: inline-block; width: .85rem; height: .35rem; border-radius: 999px; margin-right: .35rem; vertical-align: middle; }
+
+  .paths { margin-top: 2.6rem; }
+  .paths h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: .3rem; }
+  .paths .plede { color: var(--muted); font-size: .92rem; margin-bottom: .8rem; }
+  .path { display: flex; gap: .55rem; align-items: center; padding: .75rem 0; border-bottom: .5px solid var(--hairline); flex-wrap: wrap; }
+  .path:last-child { border-bottom: none; }
+  .path b { min-width: 15.5rem; font-size: .9rem; }
+  .path .pstep { background: var(--indigo-50); color: var(--indigo); border-radius: 999px; padding: .16rem .68rem; font-weight: 700; font-size: .8rem; text-decoration: none; transition: all .12s ease; }
+  .path .pstep:hover { background: var(--indigo); color: #fff; }
+  .path .parr { color: var(--faint); font-weight: 700; }
+
+  .play-section { margin-top: 2.6rem; }
+  .play-section h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: .3rem; }
+  .play-section .plede { color: var(--muted); font-size: .92rem; margin-bottom: .4rem; }
+
+  .mm-section { margin-top: 1.6rem; }
+  .mm-section h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: .2rem; }
+  .mm-section .mm-lede { color: var(--muted); font-size: .92rem; margin-bottom: .4rem; }
+  .mm-wrap { border: 1px solid var(--hairline); border-radius: var(--radius); background: linear-gradient(180deg,#fff, #FDF3F7); padding: .6rem; overflow-x: auto; }
+  .mm-svg { width: 100%; height: auto; display: block; max-width: 60rem; margin: 0 auto; min-width: 34rem; }
+  .mm-link { cursor: pointer; text-decoration: none; }
+  .mm-node rect { transition: opacity .15s ease, filter .15s ease; }
+  .mm-node text { pointer-events: none; }
+  .mm-link:hover .mm-node rect { filter: brightness(1.06); }
+  .mm-edge { transition: opacity .15s ease; }
+
+  .noteband { margin-top: 2.4rem; background: var(--indigo-50); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 1rem 1.2rem; font-size: .9rem; color: var(--ink); }
+  .noteband b { color: var(--indigo); }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Classification &amp; Regression with Phoebe</div>
+    <h1>The supervised zoo: <span class="accent">seven classic algorithms, in depth</span>.</h1>
+    <p class="sub">Intro-ML taught you the workflow with one classifier and one tree. This 10-session builder course opens the whole cage: linear and polynomial regression, logistic regression from the inside (odds, coefficients, log-loss), gradient descent built from scratch, k-nearest neighbors, naive Bayes, decision trees in real depth (gini, entropy, pruning), and support vector machines - then two sessions on the judgement call that matters most: choosing the right algorithm, and proving your choice in a full bake-off. Same Lumen Skincare data, same seed 42, every number validated with real scikit-learn runs - so what you learn here reconciles line by line with the statistics, intro-ML, and experimentation courses.</p>
+    <div class="stats-row">
+      <div class="stat"><b data-count="10">10</b><span>sessions, one track</span></div>
+      <div class="stat"><b data-count="7">7</b><span>algorithms, in depth</span></div>
+      <div class="stat"><b data-count="4">4</b><span>boundary styles, live</span></div>
+      <div class="stat"><b data-count="2">2</b><span>leaderboards to win</span></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="section">
+    <div class="paths" style="margin-top:0">
+      <h2>The sessions 🛠️ <span style="font-size:.85rem;font-weight:600;color:var(--muted)">· for practitioners · 10 x 45 min · Python + scikit-learn · assumes intro-ml</span></h2>
+      <p class="plede">One algorithm per session, one running brand across all ten. Every session ends the same way: the algorithm faces the Lumen data, earns its spot on the leaderboard, and you learn exactly why it landed where it did. Everyone starts at session 1.</p>
+    </div>
+    <div class="course-grid">
+      <a class="course-card" href="courses/c1-the-supervised-zoo.html" style="--diff:#34D399">
+        <span class="cicon">🗺️</span>
+        <span class="cnum">Session 1 · start here</span>
+        <h3>The supervised zoo</h3>
+        <p>Seven algorithms, two families - model-based vs instance-based - and the one picture that compares them all: the decision boundary, explored live. Plus the baseline leaderboard the course will explain.</p>
+        <span class="meta"><span class="pill amber">▶ Start here</span><span class="pill light">Live boundaries</span></span>
+      </a>
+      <a class="course-card" href="courses/c2-linear-regression.html" style="--diff:#34D399">
+        <span class="cicon">📏</span>
+        <span class="cnum">Session 2</span>
+        <h3>Linear regression, properly</h3>
+        <p>Least squares from residuals up, coefficients you can read in dollars, R² honestly - then polynomial features and the degree-12 explosion that teaches restraint. Ridge and lasso as the tamer.</p>
+        <span class="meta"><span class="pill light">Least squares</span></span>
+      </a>
+      <a class="course-card" href="courses/c3-logistic-regression.html" style="--diff:#FBBF24">
+        <span class="cicon">🎚️</span>
+        <span class="cnum">Session 3</span>
+        <h3>Logistic regression, from the inside</h3>
+        <p>Sigmoid, odds and log-odds, coefficients as odds ratios (email x4.1, returning x2.8), why the loss is log-loss and not MSE - and the moment the model recovers the machine that made the data.</p>
+        <span class="meta"><span class="pill light">Odds &amp; coefficients</span></span>
+      </a>
+      <a class="course-card" href="courses/c4-gradient-descent.html" style="--diff:#FBBF24">
+        <span class="cicon">⛰️</span>
+        <span class="cnum">Session 4</span>
+        <h3>Gradient descent</h3>
+        <p>The loss surface, the learning rate, batch vs stochastic - then the payoff: a 15-line from-scratch descent that matches scikit-learn's coefficients to two decimals. You will never fear "solver" again.</p>
+        <span class="meta"><span class="pill light">From scratch</span></span>
+      </a>
+      <a class="course-card" href="courses/c5-k-nearest-neighbors.html" style="--diff:#FBBF24">
+        <span class="cicon">📍</span>
+        <span class="cnum">Session 5</span>
+        <h3>k-nearest neighbors</h3>
+        <p>The algorithm with no training step: k from memorization (k=1, a coin flip on test) to over-smoothing, why scaling is life or death (0.64 vs 0.58 AUC), the curse of dimensionality, and kNN regression.</p>
+        <span class="meta"><span class="pill light">Distance &amp; k</span></span>
+      </a>
+      <a class="course-card" href="courses/c6-naive-bayes.html" style="--diff:#FBBF24">
+        <span class="cicon">🎲</span>
+        <span class="cnum">Session 6</span>
+        <h3>Naive Bayes</h3>
+        <p>Bayes' theorem as a classifier, the independence assumption that is false yet works, Gaussian vs Multinomial vs Bernoulli, smoothing - and why you never trust its probabilities, only its rankings.</p>
+        <span class="meta"><span class="pill light">Probability engine</span></span>
+      </a>
+      <a class="course-card" href="courses/c7-decision-trees.html" style="--diff:#FB923C">
+        <span class="cicon">🌳</span>
+        <span class="cnum">Session 7</span>
+        <h3>Decision trees, in depth</h3>
+        <p>Gini vs entropy (near-identical - gini is just cheaper), information gain, the depth U-curve, pruning with max_depth / min_samples_leaf / ccp_alpha, feature importance - and where trees lose to lines.</p>
+        <span class="meta"><span class="pill light">Splits &amp; pruning</span></span>
+      </a>
+      <a class="course-card" href="courses/c8-support-vector-machines.html" style="--diff:#FB923C">
+        <span class="cicon">🥅</span>
+        <span class="cnum">Session 8</span>
+        <h3>Support vector machines</h3>
+        <p>The widest-street idea, support vectors, C and gamma, the kernel trick - and the honest Lumen result: linear SVM ties logistic while a default RBF loses badly. Kernels are not magic.</p>
+        <span class="meta"><span class="pill light">Margins &amp; kernels</span></span>
+      </a>
+      <a class="course-card" href="courses/c9-choosing-your-model.html" style="--diff:#FB923C">
+        <span class="cicon">🧭</span>
+        <span class="cnum">Session 9</span>
+        <h3>Choosing your model</h3>
+        <p>Bias and variance across the whole zoo, the decision guide (data shape, size, interpretability, speed), and the fair-comparison protocol: tune by cross-validation, spend the test set once.</p>
+        <span class="meta"><span class="pill light">The judgement</span></span>
+      </a>
+      <a class="course-card" href="courses/c10-capstone-the-bake-off.html" style="--diff:#F87171">
+        <span class="cicon">🏆</span>
+        <span class="cnum">Session 10</span>
+        <h3>Capstone: the bake-off</h3>
+        <p>Every algorithm, both Lumen tasks, one honest leaderboard each - written up as model cards and presented like an analyst (dollars before scores). Plus the bridges to what comes next.</p>
+        <span class="meta"><span class="pill light">Capstone</span></span>
+      </a>
+    </div>
+    <div class="diff-legend">
+      <span><i style="background:#34D399"></i>start here - the map &amp; lines</span>
+      <span><i style="background:#FBBF24"></i>building up - the core zoo</span>
+      <span><i style="background:#FB923C"></i>getting real - trees, SVM, judgement</span>
+      <span><i style="background:#F87171"></i>hardest - the bake-off</span>
+    </div>
+
+    <div class="paths">
+      <h2>Choose your path 🗺️</h2>
+      <p class="plede">Everyone starts at session 1. The fast-tracks fit a specific gap - but the full journey is the point.</p>
+      <div class="path"><b>🛠️ Full journey (recommended)</b>
+        <a class="pstep" href="courses/c1-the-supervised-zoo.html">1</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c2-linear-regression.html">2</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c3-logistic-regression.html">3</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c4-gradient-descent.html">4</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c5-k-nearest-neighbors.html">5</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c6-naive-bayes.html">6</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c7-decision-trees.html">7</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c8-support-vector-machines.html">8</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c9-choosing-your-model.html">9</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c10-capstone-the-bake-off.html">10</a>
+      </div>
+      <div class="path"><b>📈 Regression fast-track</b>
+        <a class="pstep" href="courses/c1-the-supervised-zoo.html">1</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c2-linear-regression.html">2</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c4-gradient-descent.html">4</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c7-decision-trees.html">7</a>
+      </div>
+      <div class="path"><b>🎯 Classification fast-track</b>
+        <a class="pstep" href="courses/c1-the-supervised-zoo.html">1</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c3-logistic-regression.html">3</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c5-k-nearest-neighbors.html">5</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c6-naive-bayes.html">6</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c7-decision-trees.html">7</a>
+      </div>
+      <div class="path"><b>🧭 "Which model?" crash course</b>
+        <a class="pstep" href="courses/c1-the-supervised-zoo.html">1</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c9-choosing-your-model.html">9</a><span class="parr">→</span>
+        <a class="pstep" href="courses/c10-capstone-the-bake-off.html">10</a>
+      </div>
+    </div>
+
+    <section class="play-section">
+      <h2>Try the boundary explorer 🧪</h2>
+      <p class="plede">Real models, fit live in your browser - real gradient descent, real CART splits, real neighbor votes. Switch algorithms and datasets, drag the knobs, and watch the train-test gap tell you when a model is memorizing instead of learning. The same tool is embedded in the sessions that teach each algorithm.</p>
+      <div class="algo-live" data-tool="boundary" data-data="lab" data-algo="tree"></div>
+    </section>
+
+    <div class="noteband">
+      <b>One brand, every algorithm.</b> Every session works on <b>Lumen Skincare</b> - the synthetic $18M direct-to-consumer skincare label shared with the statistics, intro-ML, and experimentation courses (same generator, seed 42). Two tasks all course long: a <b>classifier</b> for whether a checkout session converts (~3% base rate) and a <b>regressor</b> for order value (mean ~$73, right-skewed). Every teaching number on every page was validated with a real scikit-learn run - and the honest headline is that on this tabular, mostly-linear data, the linear models top both leaderboards. Knowing why is the course.
+    </div>
+
+    <div class="noteband">
+      <b>Honest about scope.</b> Sessions distill the classic supervised-learning canon - StatQuest's algorithm series, the scikit-learn user guide (linear models, SVM, nearest neighbors, naive Bayes, trees), and Andrew Ng / DeepLearning.AI's ML Specialization C1 + the C2 tree module. Certificates, videos, and graded labs stay official. The workflow itself (splits, CV, metrics) is assumed from <a href="https://phoebefu6.github.io/learn-intro-ml-with-phoebe/">learn-intro-ml-with-phoebe</a>; feature engineering, ensembles/XGBoost, unsupervised learning, and deep learning are pointed to their own sibling courses. Content verified July 2026.
+    </div>
+  </section>
+
+  <section class="section mm-section">
+    <h2>The knowledge map 🧠</h2>
+    <p class="mm-lede">The whole course at a glance - hover a session to spotlight its concepts, click any node to jump in.</p>
+    <div class="mm-wrap"><div id="mindmap"></div></div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>learn-classification-regression-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a> · in the ladder: <a href="https://phoebefu6.github.io/learn-statistics-with-phoebe/">learn-statistics</a> → <a href="https://phoebefu6.github.io/learn-intro-ml-with-phoebe/">learn-intro-ml</a> → <b>this course</b> → <a href="https://phoebefu6.github.io/learn-experimentation-with-phoebe/">learn-experimentation</a></span>
+  </footer>
+</main>
+
+<script>
+window.MINDMAP_DATA = {
+  title: "Classification\n& Regression",
+  centerColor: "#9C1E52",
+  sessions: [
+    { label: "The\nsupervised zoo", href: "courses/c1-the-supervised-zoo.html", color: "#34D399",
+      concepts: [
+        { label: "Two families", href: "courses/c1-the-supervised-zoo.html" },
+        { label: "Decision boundaries", href: "courses/c1-the-supervised-zoo.html" },
+        { label: "Baseline leaderboard", href: "courses/c1-the-supervised-zoo.html" } ] },
+    { label: "Linear\nregression", href: "courses/c2-linear-regression.html", color: "#34D399",
+      concepts: [
+        { label: "Least squares", href: "courses/c2-linear-regression.html" },
+        { label: "Polynomial explosion", href: "courses/c2-linear-regression.html" },
+        { label: "Ridge + lasso", href: "courses/c2-linear-regression.html" } ] },
+    { label: "Logistic\nregression", href: "courses/c3-logistic-regression.html", color: "#FBBF24",
+      concepts: [
+        { label: "Sigmoid + log-odds", href: "courses/c3-logistic-regression.html" },
+        { label: "Odds ratios", href: "courses/c3-logistic-regression.html" },
+        { label: "Log-loss, not MSE", href: "courses/c3-logistic-regression.html" } ] },
+    { label: "Gradient\ndescent", href: "courses/c4-gradient-descent.html", color: "#FBBF24",
+      concepts: [
+        { label: "Loss surface", href: "courses/c4-gradient-descent.html" },
+        { label: "Learning rate", href: "courses/c4-gradient-descent.html" },
+        { label: "15-line descent", href: "courses/c4-gradient-descent.html" } ] },
+    { label: "k-nearest\nneighbors", href: "courses/c5-k-nearest-neighbors.html", color: "#FBBF24",
+      concepts: [
+        { label: "Choosing k", href: "courses/c5-k-nearest-neighbors.html" },
+        { label: "Scaling is mandatory", href: "courses/c5-k-nearest-neighbors.html" },
+        { label: "Curse of dimensionality", href: "courses/c5-k-nearest-neighbors.html" } ] },
+    { label: "Naive\nBayes", href: "courses/c6-naive-bayes.html", color: "#FBBF24",
+      concepts: [
+        { label: "Bayes as classifier", href: "courses/c6-naive-bayes.html" },
+        { label: "Independence bet", href: "courses/c6-naive-bayes.html" },
+        { label: "G / M / B variants", href: "courses/c6-naive-bayes.html" } ] },
+    { label: "Decision\ntrees", href: "courses/c7-decision-trees.html", color: "#FB923C",
+      concepts: [
+        { label: "Gini vs entropy", href: "courses/c7-decision-trees.html" },
+        { label: "Pruning + ccp_alpha", href: "courses/c7-decision-trees.html" },
+        { label: "Feature importance", href: "courses/c7-decision-trees.html" } ] },
+    { label: "Support vector\nmachines", href: "courses/c8-support-vector-machines.html", color: "#FB923C",
+      concepts: [
+        { label: "Margins + support vecs", href: "courses/c8-support-vector-machines.html" },
+        { label: "C and gamma", href: "courses/c8-support-vector-machines.html" },
+        { label: "The kernel trick", href: "courses/c8-support-vector-machines.html" } ] },
+    { label: "Choosing\nyour model", href: "courses/c9-choosing-your-model.html", color: "#FB923C",
+      concepts: [
+        { label: "Bias-variance map", href: "courses/c9-choosing-your-model.html" },
+        { label: "The decision guide", href: "courses/c9-choosing-your-model.html" },
+        { label: "Fair-comparison protocol", href: "courses/c9-choosing-your-model.html" } ] },
+    { label: "Capstone:\nthe bake-off", href: "courses/c10-capstone-the-bake-off.html", color: "#F87171",
+      concepts: [
+        { label: "Two leaderboards", href: "courses/c10-capstone-the-bake-off.html" },
+        { label: "Model cards", href: "courses/c10-capstone-the-bake-off.html" },
+        { label: "Dollars before scores", href: "courses/c10-capstone-the-bake-off.html" } ] }
+  ]
+};
+</script>
+<script src="assets/algo-live.js?v=1"></script>
+<script src="assets/mindmap.js?v=1"></script>
+<script src="assets/app.js?v=1"></script>
+</body>
+</html>

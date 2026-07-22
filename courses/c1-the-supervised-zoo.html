@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session 1 · The supervised zoo - learn classification and regression with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-classification-regression-with-phoebe</a> / Session 1 of 10</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Classification &amp; Regression with Phoebe · Session 1 of 10</div>
+    <h1>Welcome to <span class="accent">the supervised zoo</span></h1>
+    <p class="sub">Intro-ML taught you the workflow: split the data, train on train, judge on test, tune with cross-validation - using just one classifier and one tree. This course opens the cage doors. Seven classic algorithms - linear regression, logistic regression, gradient descent, k-nearest neighbors, naive Bayes, decision trees, and support vector machines - each get a session of real depth: how they think, what their knobs do, when they win, and when they quietly lose. Same Lumen Skincare data, same seed 42, so every number reconciles with the courses you have already taken. Today you meet the whole zoo, learn the one picture that explains them all - the decision boundary - and set up the leaderboard the next nine sessions will fill in.</p>
+    <div class="chip-row">
+      <span class="chip level">🟢 Start here</span>
+      <span class="chip audience">Builders · DA / DE / DS</span>
+      <span class="chip audience">Python · scikit-learn</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Setup</span>
+      <span class="a2" style="flex:3">3-18 · The zoo map</span>
+      <span class="a3" style="flex:5">18-40 · Boundaries &amp; baselines</span>
+      <span class="a4" style="flex:1">40-45 · Wrap</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>One question, seven ways of answering it</h2>
+    </div>
+    <p class="lede">Every algorithm in this course answers the same two Lumen questions - will this session convert, and how big will the order be - but each answers in its own voice. A linear model draws a straight line. A tree asks yes/no questions. kNN just looks at the neighbors. Naive Bayes multiplies probabilities. An SVM hunts for the widest gap. None of them is "the best one"; each is a different bet about what shape the truth has. Learning the zoo means learning which bet fits which data - that judgement is what separates someone who calls <code>.fit()</code> from someone who models.</p>
+    <div class="legend">
+      <span class="pill solid">Live - built in session</span>
+      <span class="pill light">Self-study - run after</span>
+      <span class="pill amber">★ The one big idea</span>
+      <span class="pill inkpill">The case: Lumen Skincare</span>
+    </div>
+    <div class="callout win">
+      <strong>★ What you walk out with today</strong>
+      The map of the seven algorithms and the two families they belong to (model-based vs instance-based), the one picture that compares them all - the decision boundary - explored live in your browser, and a rebuilt Lumen dataset plus a three-model baseline script whose leaderboard (logistic ~0.69, tree ~0.66, kNN ~0.64 ROC-AUC) you will fully understand, beat, and explain by session 10.
+    </div>
+  </section>
+
+  <!-- ============ PART 1: THE ZOO MAP ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · the map</span>
+      <h2>Seven algorithms, two families <span class="tag concept">8 min live</span></h2>
+    </div>
+    <p class="lede">The zoo looks big until you see the family resemblance. <strong>Model-based</strong> algorithms compress the training data into a small set of learned numbers - weights, split rules, class statistics - then throw the data away. <strong>Instance-based</strong> algorithms keep the data and answer by looking things up. That one distinction predicts most of each algorithm's personality: training speed, prediction speed, memory, and how the boundary looks.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Map of the seven supervised algorithms in this course, grouped into model-based and instance-based families, each with the session that teaches it.">
+        <style>
+          .zmT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .zmH { font: 700 12px Inter, sans-serif; fill: #FFFFFF; }
+          .zmB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .zmN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .zmBox { fill: #FDEEF4; stroke: #F2AECB; stroke-width: 1.5; }
+          .zmBox2 { fill: #E5F6F8; stroke: #0CA4B8; stroke-width: 1.5; }
+        </style>
+        <text class="zmT" x="30" y="28">The supervised zoo - who lives where</text>
+
+        <rect x="30" y="46" width="600" height="150" rx="12" fill="none" stroke="#D6336C" stroke-width="2" stroke-dasharray="6 4"/>
+        <rect x="42" y="58" width="150" height="24" rx="8" fill="#D6336C"/>
+        <text class="zmH" x="56" y="75">MODEL-BASED</text>
+        <text class="zmN" x="204" y="75">learn numbers, discard the data</text>
+
+        <rect class="zmBox" x="42" y="96" width="130" height="84" rx="10"/>
+        <text class="zmB" x="54" y="118">Linear reg.</text>
+        <text class="zmN" x="54" y="136">a straight line</text>
+        <text class="zmN" x="54" y="152">through $ values</text>
+        <text class="zmN" x="54" y="170">→ session 2</text>
+
+        <rect class="zmBox" x="184" y="96" width="130" height="84" rx="10"/>
+        <text class="zmB" x="196" y="118">Logistic reg.</text>
+        <text class="zmN" x="196" y="136">a line pushed</text>
+        <text class="zmN" x="196" y="152">through sigmoid</text>
+        <text class="zmN" x="196" y="170">→ sessions 3-4</text>
+
+        <rect class="zmBox" x="326" y="96" width="130" height="84" rx="10"/>
+        <text class="zmB" x="338" y="118">Naive Bayes</text>
+        <text class="zmN" x="338" y="136">multiply class</text>
+        <text class="zmN" x="338" y="152">probabilities</text>
+        <text class="zmN" x="338" y="170">→ session 6</text>
+
+        <rect class="zmBox" x="468" y="96" width="130" height="84" rx="10"/>
+        <text class="zmB" x="480" y="118">Decision tree</text>
+        <text class="zmN" x="480" y="136">stacked yes/no</text>
+        <text class="zmN" x="480" y="152">questions</text>
+        <text class="zmN" x="480" y="170">→ session 7</text>
+
+        <rect x="656" y="46" width="194" height="150" rx="12" fill="none" stroke="#0CA4B8" stroke-width="2" stroke-dasharray="6 4"/>
+        <rect x="668" y="58" width="170" height="24" rx="8" fill="#0CA4B8"/>
+        <text class="zmH" x="682" y="75">INSTANCE-BASED</text>
+
+        <rect class="zmBox2" x="668" y="96" width="170" height="84" rx="10"/>
+        <text class="zmB" x="680" y="118">k-nearest neighbors</text>
+        <text class="zmN" x="680" y="136">keep all the data,</text>
+        <text class="zmN" x="680" y="152">ask the neighbors</text>
+        <text class="zmN" x="680" y="170">→ session 5</text>
+
+        <rect x="30" y="216" width="820" height="84" rx="12" fill="#FDEEF4" stroke="#F2AECB" stroke-width="1.5"/>
+        <text class="zmB" x="46" y="242">Support vector machines - a foot in both camps</text>
+        <text class="zmN" x="46" y="262">Learns a boundary like a model-based method, but the boundary is defined by a few remembered</text>
+        <text class="zmN" x="46" y="278">training points (the support vectors). Kernels let the line bend. → session 8</text>
+
+        <rect x="30" y="320" width="820" height="52" rx="12" fill="none" stroke="#C9CEDD" stroke-width="1.5"/>
+        <text class="zmB" x="46" y="342">Sessions 9-10: no new animals</text>
+        <text class="zmN" x="46" y="360">How to CHOOSE from the zoo (9), then the full bake-off on both Lumen tasks (10).</text>
+
+        <rect x="30" y="384" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="zmN" x="52" y="395">One distinction carries the map: compress the data into numbers, or keep the data and look it up.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the seven algorithms and their two families</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>What intro-ml already gave you (and what we will not repeat)<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>This course assumes the intro-ml builder track. In one breath: you split data into train and test <em>before</em> looking at it, you fit models (and scalers!) on train only, you never trust raw accuracy on imbalanced data (Lumen converts ~3%, so "always no" is ~97% accurate and useless), you read classifiers with ROC-AUC / precision / recall and regressors with RMSE / MAE / R², and you tune with cross-validation, never on the test set.</p>
+        <p>We will <strong>use</strong> all of that constantly and <strong>re-teach none of it</strong>. If any sentence above felt foggy, take <a href="https://phoebefu6.github.io/learn-intro-ml-with-phoebe/">learn-intro-ml-with-phoebe ↗</a> first - this course starts where its b10 capstone ended.</p>
+        <div class="callout tip"><strong>The contract:</strong> intro-ml = the workflow. This course = the algorithms. Feature engineering, ensembles (XGBoost and friends), and deep learning each get their own course later - we name them when we brush against them.</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Parametric vs non-parametric - the vocabulary that unlocks the docs<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p><strong>Parametric</strong> models have a fixed number of learned parameters no matter how much data you feed them. Linear regression on 7 features learns 8 numbers whether you train on 400 rows or 40 million. That makes them fast, small, and stable - and caps how bendy they can get.</p>
+        <p><strong>Non-parametric</strong> models grow with the data. kNN's "model" is the whole training set; a tree can keep splitting as long as rows remain. They can fit almost any shape - which is power and danger in one feature: the bendier the family, the easier it memorizes noise.</p>
+        <p>scikit-learn's user guide calls kNN "non-generalizing" for exactly this reason: it does not compress the data into a generalization, it <em>remembers</em>. You will feel the consequence in the live tool below - and measure it properly in session 5.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>A fraud team asked why their kNN scorer needed 40 GB of RAM in production while the logistic model next to it needed kilobytes. Answer: kNN ships the training data as the model. Parametric vs non-parametric is not textbook trivia - it is your memory bill.</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The two Lumen tasks, one last time<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Same brand, same generator, seed 42 - the dataset you built in intro-ml b1 and the numbers that reconcile with the statistics and experimentation courses:</p>
+        <table class="clean">
+          <tr><th>Task</th><th>Target</th><th>Shape</th><th>The floor to beat</th></tr>
+          <tr><td>Will this session convert?</td><td><code>converted</code> (0/1, ~3% yes)</td><td>Classification</td><td>"always no" - ~97% accuracy, catches nobody</td></tr>
+          <tr><td>How big will the order be?</td><td><code>order_value</code> ($, mean ~$73)</td><td>Regression</td><td>"predict the mean" - RMSE ~$40 on buyers</td></tr>
+        </table>
+        <p>Every algorithm in the zoo will face both tasks (where it can). By session 10 you will have a leaderboard for each - and the honest surprise of this course is <em>which</em> models top it.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2: THE BOUNDARY ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · the one picture</span>
+      <h2>The decision boundary - where a model changes its mind <span class="tag concept">10 min live</span></h2>
+    </div>
+    <p class="lede">Take any classifier, feed it every point on a 2D map, and paint each point by the predicted class. The seam between the colors is the <strong>decision boundary</strong> - the set of places where the model flips from "no" to "yes". Every classifier in the zoo draws this seam in its own signature style: logistic regression draws one straight line, trees carve axis-parallel rectangles, kNN traces the local crowd, RBF kernels wrap curves around clusters. Learn to read this picture and you can identify an algorithm from its boundary like a naturalist reading footprints.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Four sketches of decision boundary styles: a straight line for logistic regression, axis-parallel rectangles for a tree, a wobbly local boundary for kNN, and smooth curved blobs for an RBF kernel.">
+        <style>
+          .dbB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .dbN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .dbF { fill: #FDEEF4; stroke: #F2AECB; stroke-width: 1.5; }
+          .dbL { stroke: #D6336C; stroke-width: 2.5; fill: none; }
+        </style>
+        <rect class="dbF" x="30" y="40" width="190" height="170" rx="10"/>
+        <path class="dbL" d="M55 190 L200 60"/>
+        <circle cx="80" cy="90" r="4" fill="#0CA4B8"/><circle cx="70" cy="130" r="4" fill="#0CA4B8"/><circle cx="105" cy="160" r="4" fill="#0CA4B8"/>
+        <circle cx="160" cy="80" r="4" fill="#D6336C"/><circle cx="185" cy="120" r="4" fill="#D6336C"/><circle cx="150" cy="140" r="4" fill="#D6336C"/>
+        <text class="dbB" x="30" y="30">Logistic / linear SVM</text>
+        <text class="dbN" x="42" y="232">One straight seam.</text>
+        <text class="dbN" x="42" y="248">Calm, stable, biased.</text>
+
+        <rect class="dbF" x="245" y="40" width="190" height="170" rx="10"/>
+        <path class="dbL" d="M245 130 L330 130 L330 40"/>
+        <path class="dbL" d="M330 170 L435 170"/>
+        <circle cx="285" cy="90" r="4" fill="#0CA4B8"/><circle cx="300" cy="70" r="4" fill="#0CA4B8"/><circle cx="380" cy="195" r="4" fill="#0CA4B8"/>
+        <circle cx="290" cy="170" r="4" fill="#D6336C"/><circle cx="370" cy="90" r="4" fill="#D6336C"/><circle cx="400" cy="130" r="4" fill="#D6336C"/>
+        <text class="dbB" x="245" y="30">Decision tree</text>
+        <text class="dbN" x="257" y="232">Axis-parallel cuts.</text>
+        <text class="dbN" x="257" y="248">Rectangles only.</text>
+
+        <rect class="dbF" x="460" y="40" width="190" height="170" rx="10"/>
+        <path class="dbL" d="M480 190 C510 150 490 120 530 110 C560 100 550 70 590 65 C610 62 630 80 645 70"/>
+        <circle cx="500" cy="90" r="4" fill="#0CA4B8"/><circle cx="530" cy="70" r="4" fill="#0CA4B8"/><circle cx="490" cy="140" r="4" fill="#0CA4B8"/>
+        <circle cx="560" cy="150" r="4" fill="#D6336C"/><circle cx="610" cy="120" r="4" fill="#D6336C"/><circle cx="590" cy="180" r="4" fill="#D6336C"/>
+        <text class="dbB" x="460" y="30">k-nearest neighbors</text>
+        <text class="dbN" x="472" y="232">Follows the crowd.</text>
+        <text class="dbN" x="472" y="248">Wobbly where data is.</text>
+
+        <rect class="dbF" x="675" y="40" width="175" height="170" rx="10"/>
+        <ellipse cx="740" cy="100" rx="42" ry="30" fill="none" stroke="#D6336C" stroke-width="2.5"/>
+        <ellipse cx="790" cy="165" rx="34" ry="24" fill="none" stroke="#D6336C" stroke-width="2.5"/>
+        <circle cx="740" cy="100" r="4" fill="#D6336C"/><circle cx="790" cy="165" r="4" fill="#D6336C"/>
+        <circle cx="700" cy="170" r="4" fill="#0CA4B8"/><circle cx="820" cy="80" r="4" fill="#0CA4B8"/>
+        <text class="dbB" x="675" y="30">RBF kernel SVM</text>
+        <text class="dbN" x="687" y="232">Smooth curved blobs</text>
+        <text class="dbN" x="687" y="248">around clusters.</text>
+
+        <rect x="30" y="272" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="dbN" x="52" y="283">Four signatures, one legend: magenta = predicted convert, cyan = predicted no. You will meet all four live below.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - four boundary signatures you will learn to recognize</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Play: the boundary explorer<span class="mini">6 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>These are <strong>real models fit live in your browser</strong> - real gradient descent, real CART splits, real neighbor votes. Two datasets: <em>Lumen real</em> is 300 actual generator points (150 converters, 150 non-converters, spend x pages standardized), and <em>Lab: two moons</em> is a stylized shape for geometry intuition - clearly not Lumen data. Try this script:</p>
+        <ul>
+          <li>Start on <strong>Lab + kNN</strong>. Drag k down to 1: train accuracy hits ~100% while test accuracy sinks. That gap IS overfitting - you will see it on every algorithm all course.</li>
+          <li>Switch to <strong>tree</strong> and crank depth: watch it carve one rectangle per stray point.</li>
+          <li>Switch to <strong>Lumen real</strong>: every algorithm gets humbler. Two features of real checkout data hold a weak, honest signal (~60% accuracy on a balanced sample) - real data whispers, it does not shout.</li>
+        </ul>
+        <div class="algo-live" data-tool="boundary" data-data="lab" data-algo="knn"></div>
+        <div class="callout tip"><strong>Keep this tool in mind:</strong> sessions 3, 5, 7 and 8 each come back to it with their own algorithm and knob. By session 9 you will predict the boundary shape before you select it.</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why only two features in the picture?<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Real Lumen models use all seven features; boundaries live in 7-dimensional space and cannot be drawn. Two features are a teaching window, not a recommendation - and the window has a catch: with fewer features, the models above score lower than the ~0.69 ROC-AUC you will get with the full feature set in session 3.</p>
+        <p>The shapes, however, generalize perfectly: a logistic model in 7D draws a flat 6-dimensional plane exactly as it draws a line in 2D; a tree still cuts one feature at a time; kNN still votes among neighbors. Learn the geometry in 2D, trust it in 7D.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Rebuild Lumen, then meet your baselines <span class="tag demo">★ 18 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">Two jobs: regenerate the exact Lumen dataset (seed 42 - if you still have <code>lumen_sessions.parquet</code> from intro-ml, this run will produce the identical file), then fit one representative from three families with identical code and stand up the leaderboard this course exists to explain.</p>
+
+    <div class="steps">
+      <div class="step"><p><strong>Recreate the dataset.</strong> Run the generator exactly as intro-ml b1 shipped it - same seed, same coefficients. Sanity-check the fingerprint: 40,000 rows, ~3% conversion, AOV mean ~$73.</p></div>
+      <div class="step"><p><strong>Build the shared preprocessing.</strong> One <code>ColumnTransformer</code>: one-hot the four categoricals, scale the three numerics. Fit on train only - the b2 discipline, forever.</p></div>
+      <div class="step"><p><strong>Fit three animals with one loop.</strong> Same <code>Pipeline</code>, three estimators swapped in - the estimator API is why this is three lines, not three scripts.</p></div>
+      <div class="step"><p><strong>Read the leaderboard.</strong> ROC-AUC on the held-out test set. Do not explain the ranking yet - explaining it is the whole course.</p></div>
+    </div>
+
+    <div class="prompt-box good">
+      <span class="label">baselines.py - the leaderboard we will spend nine sessions understanding</span>import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import roc_auc_score
+
+df = pd.read_parquet("lumen_sessions.parquet")
+cat = ["channel", "device", "new_vs_returning", "product_category"]
+num = ["pages_viewed", "session_hour", "prior_30d_spend"]
+X, y = df[cat + num], df["converted"]
+
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y)
+
+prep = ColumnTransformer([
+    ("cat", OneHotEncoder(handle_unknown="ignore"), cat),
+    ("num", StandardScaler(), num)])
+
+zoo = {
+    "logistic": LogisticRegression(max_iter=2000),
+    "tree d=5": DecisionTreeClassifier(max_depth=5, random_state=42),
+    "kNN k=101": KNeighborsClassifier(n_neighbors=101)}
+
+for name, model in zoo.items():
+    pipe = Pipeline([("prep", prep), ("model", model)]).fit(X_tr, y_tr)
+    proba = pipe.predict_proba(X_te)[:, 1]
+    print(f"{name:10s} ROC-AUC {roc_auc_score(y_te, proba):.2f}")
+
+# logistic   ROC-AUC 0.69
+# tree d=5   ROC-AUC 0.66
+# kNN k=101  ROC-AUC 0.64</div>
+
+    <div class="callout tip"><strong>If your numbers differ in the 2nd decimal:</strong> fine - tiny library-version jitter is normal. If they differ in the 1st decimal, check the seed (42 in the generator AND the split) and that the scaler sits inside the pipeline, not before the split.</div>
+    <div class="callout example"><span class="ex-pill">Real world</span>Notice what just happened operationally: swapping algorithms was a one-line change inside a dict. Teams that structure experiments this way test seven models in the time others test one - the estimator API is a productivity feature disguised as a design choice.</div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 2 <span class="tag exercise">◐ 25 min</span></h2>
+    </div>
+    <ul>
+      <li>Run <code>baselines.py</code> end to end and keep the printed leaderboard somewhere visible - it is the "before" photo for the whole course.</li>
+      <li>In the boundary explorer, find a k where kNN's train and test accuracy are closest on the Lab dataset. Write the number down; session 5 explains why that k and not 1.</li>
+      <li>Add <code>GaussianNB()</code> (from <code>sklearn.naive_bayes</code>, needs no scaling but works fine with it) as a fourth zoo member. Where does it land on the leaderboard?</li>
+      <li>One paragraph: which family (model-based or instance-based) do you expect to win on Lumen, and why? No wrong answers yet - you will grade yourself in session 10.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions before you go 🎯 <span class="tag exercise">◐ 90 seconds</span></h2>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">1 · What is the decision boundary of a classifier?</p>
+      <button class="qopt" type="button">A · the line between the training and test sets</button>
+      <button class="qopt" type="button">B · the maximum accuracy the model can reach</button>
+      <button class="qopt" type="button">C · the set of points where the model's predicted class flips - the seam between the colored regions</button>
+      <p class="qwhy">Paint every point in feature space by predicted class; the seam where the color changes is the boundary. Its shape is the algorithm's signature: line, rectangles, local wobble, or smooth curves.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">2 · kNN is called "instance-based" (or "non-generalizing") because...</p>
+      <button class="qopt" type="button">A · it keeps the entire training set and answers by looking up neighbors, rather than compressing the data into learned parameters</button>
+      <button class="qopt" type="button">B · it only works on small datasets</button>
+      <button class="qopt" type="button">C · it cannot do regression</button>
+      <p class="qwhy">kNN's model IS the training data. That buys flexibility (any boundary shape) and costs memory and prediction speed - the family trade-off in one algorithm. It handles regression fine (session 5).</p>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">3 · In the explorer, kNN with k=1 shows train accuracy ~100% and much lower test accuracy. What is that gap called and why does it appear?</p>
+      <button class="qopt" type="button">A · data leakage - the test set contaminated training</button>
+      <button class="qopt" type="button">B · overfitting - with k=1 every training point is its own nearest neighbor, so the model memorizes noise instead of learning the pattern</button>
+      <button class="qopt" type="button">C · the accuracy paradox - the classes are imbalanced</button>
+      <p class="qwhy">At k=1 each training point predicts itself perfectly, so the boundary wraps around every noisy point. Perfect train score, poor test score - the overfitting tell you will re-meet on trees (depth), polynomials (degree), and RBF (gamma).</p>
+    </div>
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ OFFICIAL SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Source material</span>
+      <h2>What this session covers</h2>
+    </div>
+    <p class="lede">Session 1 covers the orientation layer of the anchor sources - the supervised-learning map and the vocabulary - so each later session can go deep on one animal. Certificates, videos, and graded labs stay with the official providers.</p>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">The supervised zoo map: model-based vs instance-based, parametric vs non-parametric</span><span class="note">Part 1</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Decision boundaries as the universal comparison picture</span><span class="note">Part 2 + live tool</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">scikit-learn supervised-learning guide - module map (1.1, 1.4, 1.6, 1.9, 1.10)</span><span class="note">the course's spine</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Andrew Ng ML Specialization C1 W1 - supervised learning framing</span><span class="note">recap only; intro-ml owns it</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">The workflow itself (splits, CV, metrics)</span><span class="note">learn-intro-ml-with-phoebe - assumed, not re-taught</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 1 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>The zoo</b><span>Linear reg (s2), logistic (s3) + gradient descent (s4), kNN (s5), naive Bayes (s6), trees (s7), SVM (s8), then choosing (s9) and the bake-off (s10).</span></div>
+      <div class="cheat-item"><b>Two families</b><span>Model-based: compress data into learned numbers (linear, logistic, NB, tree). Instance-based: keep the data, look up neighbors (kNN). SVM straddles both.</span></div>
+      <div class="cheat-item"><b>Parametric or not</b><span>Parametric = fixed number of parameters regardless of data size (fast, small, stiff). Non-parametric = grows with data (flexible, hungry, memorizes if unchecked).</span></div>
+      <div class="cheat-item"><b>Decision boundary</b><span>Where the predicted class flips. Logistic: straight line. Tree: axis-parallel rectangles. kNN: local wobble. RBF: smooth curves. Read the footprint, name the animal.</span></div>
+      <div class="cheat-item"><b>The overfitting tell</b><span>Train accuracy high, test accuracy low - the gap. Same tell on every knob: k, depth, degree, gamma.</span></div>
+      <div class="cheat-item"><b>The starting leaderboard</b><span>Full features, ROC-AUC: logistic ~0.69, tree(d5) ~0.66, kNN(k=101, scaled) ~0.64. Beating and explaining this is the course.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>Session 1 of 10 · learn-classification-regression-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="../index.html">← All sessions</a> &nbsp;·&nbsp; <a href="c2-linear-regression.html">Next: Linear regression, properly →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/algo-live.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session 6 · Naive Bayes - learn classification and regression with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-classification-regression-with-phoebe</a> / Session 6 of 10</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Classification &amp; Regression with Phoebe · Session 6 of 10</div>
+    <h1>Naive Bayes - <span class="accent">the millisecond baseline</span></h1>
+    <p class="sub">Every animal so far had to search for its answer: logistic descended a loss surface, kNN measured distances, and next session's tree will audition thousands of splits. Naive Bayes just counts. It counts how features look inside each class, multiplies, flips the question with Bayes' theorem, and is done - no iterations, no descent, trained in milliseconds. The price of that speed is one gloriously wrong assumption (the "naive" part) and probabilities you must never take at face value. Today you learn when this is exactly the right first model - text, speed, tiny data - and land it on the Lumen leaderboard at ~0.66 AUC for essentially zero compute.</p>
+    <div class="chip-row">
+      <span class="chip level">🟡 Core zoo</span>
+      <span class="chip audience">Builders · DA / DE / DS</span>
+      <span class="chip audience">Python · scikit-learn</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Setup</span>
+      <span class="a2" style="flex:3">3-18 · Bayes and the naive bet</span>
+      <span class="a3" style="flex:5">18-40 · Build: the millisecond baseline</span>
+      <span class="a4" style="flex:1">40-45 · Wrap</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>The zoo's probability engine</h2>
+    </div>
+    <p class="lede">Naive Bayes is the only animal in the zoo that treats classification as pure probability bookkeeping. It never optimizes anything: no loss function, no gradient, no search. It reads the training data once, tallies a few per-class statistics, and every prediction after that is a multiply-and-compare. That makes it the fastest model you will ever fit - and a strangely honest one: everything it believes, you can print and inspect. The catch comes in two parts: an independence assumption that is almost always false, and output "probabilities" that rank well but calibrate terribly.</p>
+    <div class="legend">
+      <span class="pill solid">Live - built in session</span>
+      <span class="pill light">Self-study - run after</span>
+      <span class="pill amber">★ The one big idea</span>
+      <span class="pill inkpill">The case: Lumen Skincare</span>
+    </div>
+    <div class="callout win">
+      <strong>★ What you walk out with today</strong>
+      You will know when Naive Bayes is the right FIRST model - text data, speed constraints, tiny training sets - and why. You will fit GaussianNB and BernoulliNB on Lumen (~0.66 and ~0.65 AUC) in a fraction of logistic's training time, match each NB variant to its feature type, and internalize the one warning that saves careers: never trust this model's predict_proba. Rankings yes, probabilities no.
+    </div>
+  </section>
+
+  <!-- ============ PART 1: BAYES AS A CLASSIFIER ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · the flip</span>
+      <h2>Bayes' theorem as a classifier <span class="tag concept">8 min live</span></h2>
+    </div>
+    <p class="lede">The question we want is hard: <strong>P(convert | features)</strong> - given this session's channel, device, spend, will it convert? But the reverse question is easy: given a converter, what do their features look like? That is just counting rows in the training set. Bayes' theorem is the machine that turns the easy direction into the hard one: <strong>P(convert | features) ∝ P(features | convert) x P(convert)</strong>. Score every class as prior times likelihood, predict the class with the biggest score. That argmax is the whole classifier.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram of the Bayes flip: the easy forward question about how converters' features look is flipped into the question we want, shown as prior times likelihood giving the posterior.">
+        <style>
+          .nbAT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .nbAB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .nbAC { font: 700 12px Inter, sans-serif; fill: #063C44; }
+          .nbAN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .nbAX { font: 700 20px Inter, sans-serif; fill: #D6336C; }
+          .nbABox { fill: #FDEEF4; stroke: #F2AECB; stroke-width: 1.5; }
+          .nbACyan { fill: #E5F6F8; stroke: #0CA4B8; stroke-width: 1.5; }
+          .nbAArr { stroke: #D6336C; stroke-width: 2.5; fill: none; }
+        </style>
+        <defs>
+          <marker id="nbAh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0 0 L6 3 L0 6 Z" fill="#D6336C"/>
+          </marker>
+        </defs>
+        <text class="nbAT" x="30" y="28">The flip - count the easy direction, then turn it around</text>
+
+        <rect class="nbABox" x="30" y="46" width="360" height="92" rx="10"/>
+        <text class="nbAB" x="46" y="72">The forward question (easy)</text>
+        <text class="nbAN" x="46" y="94">Given a converter, how do their</text>
+        <text class="nbAN" x="46" y="110">features look? Just count rows.</text>
+
+        <line class="nbAArr" x1="398" y1="92" x2="482" y2="92" marker-end="url(#nbAh)"/>
+        <text class="nbAB" x="440" y="78" text-anchor="middle">Bayes flips it</text>
+
+        <rect class="nbACyan" x="490" y="46" width="360" height="92" rx="10"/>
+        <text class="nbAC" x="506" y="72">The question we want (hard)</text>
+        <text class="nbAN" x="506" y="94">Given these features, will this</text>
+        <text class="nbAN" x="506" y="110">session convert? The prediction.</text>
+
+        <rect class="nbABox" x="30" y="170" width="225" height="92" rx="10"/>
+        <text class="nbAB" x="46" y="196">PRIOR</text>
+        <text class="nbAB" x="46" y="216">P(convert)</text>
+        <text class="nbAN" x="46" y="236">how common converting</text>
+        <text class="nbAN" x="46" y="252">is before evidence (~3%)</text>
+
+        <text class="nbAX" x="273" y="222" text-anchor="middle">x</text>
+
+        <rect class="nbABox" x="292" y="170" width="250" height="92" rx="10"/>
+        <text class="nbAB" x="308" y="196">LIKELIHOOD</text>
+        <text class="nbAB" x="308" y="216">P(features | convert)</text>
+        <text class="nbAN" x="308" y="236">how the features look among</text>
+        <text class="nbAN" x="308" y="252">converters - counted from train</text>
+
+        <line class="nbAArr" x1="550" y1="216" x2="596" y2="216" marker-end="url(#nbAh)"/>
+        <text class="nbAX" x="573" y="204" text-anchor="middle">∝</text>
+
+        <rect class="nbACyan" x="605" y="170" width="245" height="92" rx="10"/>
+        <text class="nbAC" x="621" y="196">POSTERIOR</text>
+        <text class="nbAC" x="621" y="216">P(convert | features)</text>
+        <text class="nbAN" x="621" y="236">the flipped answer - pick</text>
+        <text class="nbAN" x="621" y="252">the bigger class (argmax)</text>
+
+        <rect x="30" y="296" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="nbAN" x="52" y="307">Count the easy direction, flip with Bayes - score = prior x likelihood, and the biggest score wins (MAP).</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the flip that turns counting into classification</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>Prior x likelihood, pick the winner<span class="mini">5 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>For a new Lumen session, compute two scores. Score(convert) = P(convert) x P(these features | convert). Score(no) = P(no) x P(these features | no). Predict whichever is bigger. That is called the <strong>MAP decision</strong> - maximum a posteriori - and it is literally all NB does at prediction time.</p>
+        <p>Notice what we skipped: the denominator P(features) from the full theorem. It is the same for both classes, so it cannot change which score wins - we drop it, which is why the formula reads "∝" (proportional to) rather than "=". This shortcut is also the first clue about why NB's probabilities go wrong: it works with unnormalized scores and only rescales at the end.</p>
+        <p>The prior does real work here. Lumen converts at roughly 3%, so the "no" class starts with a ~30x head start; the likelihoods have to shout to overcome it. On imbalanced data, NB's prior is a built-in base-rate reminder - one thing it gets right by construction.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Bayes' theorem itself, in one breath<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Recap, not re-teach: Bayes' theorem says P(A | B) = P(B | A) x P(A) / P(B) - it converts "probability of evidence given hypothesis" into "probability of hypothesis given evidence". If you can state that sentence comfortably, keep going. If you want the derivation, the medical-test worked example, and the base-rate fallacy it protects you from, that lives in <a href="https://phoebefu6.github.io/learn-statistics-with-phoebe/">learn-statistics-with-phoebe ↗</a> - this course borrows the theorem and spends its minutes on the classifier built from it.</p>
+        <div class="callout tip"><strong>The contract, again:</strong> statistics course = the theorem. This session = the theorem weaponized as a classifier, plus the engineering choices (the naive bet, the variants, smoothing) that make it practical.</div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2: THE NAIVE BET ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · the bet</span>
+      <h2>The naive bet <span class="tag concept">8 min live</span></h2>
+    </div>
+    <p class="lede">There is a hole in Part 1: the likelihood P(features | convert) means the probability of this exact <em>combination</em> - this channel AND this device AND this spend AND these pages, jointly. With 7 features, the combinations explode; almost no exact combination appears in the training data even once. You cannot count what never occurs. So NB makes its famous bet: <strong>assume every feature is independent of every other, given the class</strong>. Then the joint likelihood factorizes into a product of per-feature likelihoods - P(email | convert) x P(mobile | convert) x P(spend | convert) x ... - and each factor is trivially countable on its own.</p>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The assumption is false on Lumen - and NB scores ~0.66 anyway<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Is the naive bet true for Lumen? Not even close. Channel correlates with new_vs_returning (email lands disproportionately on returning customers), so "email" and "returning" are not independent given the class - NB double-counts their shared evidence. The assumption is simply wrong.</p>
+        <p>And yet: GaussianNB lands <strong>~0.66 ROC-AUC</strong> on the full feature set - level with the depth-5 decision tree, a whisker under logistic's ~0.69. The lesson generalizes far beyond NB: <strong>a model with wrong assumptions can still rank well</strong>. Double-counting inflates the scores, but it often inflates them in a way that preserves their ordering - and AUC only measures ordering.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>The hard rule: a decent classifier, a bad estimator<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The same double-counting that leaves rankings intact wrecks the probability values. sklearn's own user guide (1.9) puts it bluntly: naive Bayes is <em>a decent classifier but a bad estimator</em> - the outputs of <code>predict_proba</code> are "not to be taken too seriously". Piling up correlated evidence pushes scores toward extremes, so NB says "99.7% will convert" about sessions where the honest answer is "maybe 8%".</p>
+        <p>Operationally: <strong>ranking yes, calibrated probability no.</strong> Sorting sessions by NB score to pick the top 500 for an email push - fine. Feeding NB's 99.7% into an expected-revenue calculation or a bid price - a silent disaster. If you need real probabilities from NB, it must be recalibrated (a model-evaluation-course story; today, just never trust the raw values).</p>
+        <div class="callout tip"><strong>Interview-grade phrasing:</strong> "Naive Bayes' independence violation preserves the argmax more often than it preserves the probabilities - so it classifies and ranks acceptably while being poorly calibrated."</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why the naive bet relieves the curse of dimensionality<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Session 5's villain was the curse of dimensionality: in high dimensions, kNN needs enormous data because it must populate the whole joint space with neighbors. The naive bet is an escape hatch: NB never models the joint space at all. Each feature gets its own little 1-D distribution, estimated independently - a mean and a variance here, a handful of category counts there.</p>
+        <p>Estimating seven 1-D distributions takes dramatically less data than estimating one 7-D distribution. That is why NB shines exactly where kNN suffers: many features, few rows. Both StatQuest's NB episodes and the sklearn guide hit this beat - the decoupling of per-feature estimates is the reason NB works at all on wide data like text, where "features" are thousands of word counts.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3: THE VARIANTS ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · the variants</span>
+      <h2>Match the distribution to the feature <span class="tag concept">9 min live</span></h2>
+    </div>
+    <p class="lede">"Naive Bayes" is a family, not a model. The engine - prior x per-feature likelihoods, pick the argmax - never changes. What changes is the <em>shape</em> you assume for each per-feature likelihood, and sklearn ships one variant per shape. Choosing the variant IS the modeling decision:</p>
+
+    <table class="clean">
+      <tr><th>Variant</th><th>Feature type</th><th>What it learns per class</th><th>Lumen / classic use</th></tr>
+      <tr><td><code>GaussianNB</code></td><td>Continuous numbers</td><td>A mean and a variance per feature - one bell per class</td><td>Our spend / pages / hour columns</td></tr>
+      <tr><td><code>MultinomialNB</code></td><td>Counts</td><td>Category frequencies, smoothed by <code>alpha</code> (Laplace)</td><td>THE text classic - word counts</td></tr>
+      <tr><td><code>BernoulliNB</code></td><td>Binary presence / absence</td><td>P(feature on | class) - and it penalizes non-occurrence too</td><td>Our one-hot categoricals; <code>binarize</code> thresholds raw inputs</td></tr>
+      <tr><td><code>ComplementNB</code></td><td>Counts, imbalanced</td><td>Statistics of the <em>complement</em> of each class</td><td>Imbalanced text - often beats MultinomialNB there</td></tr>
+      <tr><td><code>CategoricalNB</code></td><td>Ordinal-encoded categories</td><td>A frequency table per category value</td><td>Categoricals without one-hotting</td></tr>
+    </table>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three mini panels showing the likelihood shapes of the naive Bayes variants: Gaussian bell curves per class, count bars for multinomial, and on-off bits for Bernoulli.">
+        <style>
+          .nbBB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .nbBN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .nbBF { fill: #FDEEF4; stroke: #F2AECB; stroke-width: 1.5; }
+          .nbBM { stroke: #D6336C; stroke-width: 2.5; fill: none; }
+          .nbBC { stroke: #0CA4B8; stroke-width: 2.5; fill: none; }
+          .nbBAx { stroke: #C9CEDD; stroke-width: 1.5; }
+        </style>
+        <text class="nbBB" x="30" y="36">GaussianNB - continuous</text>
+        <rect class="nbBF" x="30" y="46" width="260" height="180" rx="10"/>
+        <line class="nbBAx" x1="50" y1="200" x2="270" y2="200"/>
+        <path class="nbBM" d="M55 200 C85 200 90 105 120 105 C150 105 155 200 185 200"/>
+        <path class="nbBC" d="M130 200 C160 200 165 125 195 125 C225 125 230 200 260 200"/>
+        <text class="nbBN" x="46" y="246">one bell per class per feature</text>
+        <text class="nbBN" x="46" y="262">(a mean + a variance, that's it)</text>
+
+        <text class="nbBB" x="320" y="36">MultinomialNB - counts</text>
+        <rect class="nbBF" x="320" y="46" width="260" height="180" rx="10"/>
+        <line class="nbBAx" x1="340" y1="200" x2="560" y2="200"/>
+        <rect x="352" y="120" width="22" height="80" fill="#D6336C"/>
+        <rect x="378" y="160" width="22" height="40" fill="#0CA4B8"/>
+        <rect x="424" y="90" width="22" height="110" fill="#D6336C"/>
+        <rect x="450" y="176" width="22" height="24" fill="#0CA4B8"/>
+        <rect x="496" y="168" width="22" height="32" fill="#D6336C"/>
+        <rect x="522" y="110" width="22" height="90" fill="#0CA4B8"/>
+        <text class="nbBN" x="336" y="246">count frequencies per class,</text>
+        <text class="nbBN" x="336" y="262">alpha-smoothed - text's home</text>
+
+        <text class="nbBB" x="610" y="36">BernoulliNB - on / off</text>
+        <rect class="nbBF" x="610" y="46" width="260" height="180" rx="10"/>
+        <rect x="640" y="80" width="26" height="26" rx="5" fill="#D6336C"/>
+        <rect x="676" y="80" width="26" height="26" rx="5" fill="none" stroke="#C9CEDD" stroke-width="2"/>
+        <rect x="712" y="80" width="26" height="26" rx="5" fill="#D6336C"/>
+        <rect x="748" y="80" width="26" height="26" rx="5" fill="#D6336C"/>
+        <rect x="640" y="150" width="26" height="26" rx="5" fill="none" stroke="#C9CEDD" stroke-width="2"/>
+        <rect x="676" y="150" width="26" height="26" rx="5" fill="#0CA4B8"/>
+        <rect x="712" y="150" width="26" height="26" rx="5" fill="none" stroke="#C9CEDD" stroke-width="2"/>
+        <rect x="748" y="150" width="26" height="26" rx="5" fill="#0CA4B8"/>
+        <text class="nbBN" x="626" y="246">presence AND absence both</text>
+        <text class="nbBN" x="626" y="262">count as evidence (0s matter)</text>
+
+        <rect x="30" y="278" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="nbBN" x="52" y="289">Same Bayes engine, three likelihood shapes - match the variant to what your features look like.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - three likelihood shapes, one engine</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Smoothing - why alpha exists<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>NB multiplies. Multiplication has a fatal failure mode: one zero kills everything. If the word "refund" never appeared in a training spam email, then P(refund | spam) = 0 by counting - and any future email containing "refund" gets Score(spam) = 0, no matter how much other evidence screams spam. One unseen feature vetoes the entire product.</p>
+        <p><code>alpha</code> is the fix: add a pseudocount to every count before computing frequencies (StatQuest's word for it - pseudocounts). <code>alpha=1</code> is classic Laplace / add-one smoothing, sklearn's default. Nothing is ever exactly zero, so nothing can veto. Smaller alpha trusts the counts more; bigger alpha flattens the differences. It is MultinomialNB's and BernoulliNB's one knob worth tuning.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>The spam story - NB's greatest hit<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <div class="callout example"><span class="ex-pill">Real world</span>The classic spam filter is naive Bayes wearing a trench coat. Training: count every word's frequency in known spam and known ham - that is the entire "fit". Scoring a new email: multiply P(word | spam) across its words, times the spam prior; same for ham; flip with Bayes; compare. Early web-mail providers filtered billions of messages a day this way, retraining in seconds as users hit "report spam". Decades later, an NB filter is still a strong production baseline for text - anything fancier has to beat it to justify its GPU bill.</div>
+        <p>Lumen has no text columns, so we teach the spam pipeline conceptually and keep our hands on GaussianNB and BernoulliNB. When you meet text for real (a vectorizer feeding MultinomialNB), the "covered" section below names this gap honestly.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Too much data for RAM? partial_fit<span class="mini">1 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Because NB's "model" is just running counts and running means, it can learn incrementally: <code>model.partial_fit(X_chunk, y_chunk, classes=[0, 1])</code> in a loop over chunks streams through data that never fits in memory. One line to remember: NB is one of the few zoo animals with out-of-core training built in.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Build: the millisecond baseline <span class="tag demo">★ 18 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">Three experiments: GaussianNB on the full feature set, BernoulliNB on the one-hot categoricals alone, and a timing race against logistic regression. Then one plot - the predict_proba histogram - to see the bad-estimator warning with your own eyes.</p>
+
+    <div class="steps">
+      <div class="step"><p><strong>Fit GaussianNB on everything.</strong> Scaled numerics plus one-hots through the usual pipeline (note <code>sparse_output=False</code> - GaussianNB wants a dense matrix). Expect ~0.66 ROC-AUC.</p></div>
+      <div class="step"><p><strong>Fit BernoulliNB on the one-hot categoricals only.</strong> Binary features are its native food. Expect ~0.65 - four categorical columns carry nearly the whole GaussianNB signal.</p></div>
+      <div class="step"><p><strong>Race it against logistic.</strong> Time both fits with <code>time.perf_counter()</code>. NB tallies counts in one pass; logistic iterates. On this data expect NB to be roughly an order of magnitude faster to fit.</p></div>
+      <div class="step"><p><strong>Look at the probabilities.</strong> Histogram <code>predict_proba</code>. The overconfident clumps near 0 and 1 are the bad-estimator warning made visible.</p></div>
+    </div>
+
+    <div class="prompt-box good">
+      <span class="label">nb_baseline.py - ~0.66 AUC for essentially zero compute</span>import time
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.naive_bayes import GaussianNB, BernoulliNB
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
+
+df = pd.read_parquet("lumen_sessions.parquet")
+cat = ["channel", "device", "new_vs_returning", "product_category"]
+num = ["pages_viewed", "session_hour", "prior_30d_spend"]
+X, y = df[cat + num], df["converted"]
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y)
+
+prep = ColumnTransformer([
+    ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), cat),
+    ("num", StandardScaler(), num)])
+
+def fit_timed(name, pipe):
+    t0 = time.perf_counter()
+    pipe.fit(X_tr, y_tr)
+    secs = time.perf_counter() - t0
+    auc = roc_auc_score(y_te, pipe.predict_proba(X_te)[:, 1])
+    print(f"{name:12s} AUC {auc:.2f}   fit {secs:.4f}s")
+    return pipe
+
+# 1 - GaussianNB on everything: ~0.66, fit in milliseconds
+gnb = fit_timed("GaussianNB", Pipeline([("prep", prep), ("model", GaussianNB())]))
+
+# 2 - BernoulliNB on the one-hot cats only: ~0.65
+cats_only = ColumnTransformer([
+    ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), cat)])
+bnb = fit_timed("BernoulliNB", Pipeline([("prep", cats_only), ("model", BernoulliNB())]))
+
+# 3 - the race: logistic iterates, NB just counts
+logit = fit_timed("logistic", Pipeline([("prep", prep),
+    ("model", LogisticRegression(max_iter=2000))]))
+# expect NB roughly an order of magnitude faster to fit - it makes ONE pass
+
+# 4 - the bad estimator, visible: probabilities pile up near 0 and 1
+plt.hist(gnb.predict_proba(X_te)[:, 1], bins=50)
+plt.title("GaussianNB predict_proba - overconfident clumps at the extremes")
+plt.show()</div>
+
+    <div class="callout tip"><strong>Reading the histogram:</strong> a well-calibrated model on a ~3% base rate would concentrate its probabilities down near 0.03 with a thin honest tail. NB instead slams scores toward 0 and 1 - correlated features double-counted as independent evidence. Same ranking quality as the tree (~0.66), wildly worse probability quality. Exactly what the sklearn warning predicts.</div>
+    <div class="callout example"><span class="ex-pill">Real world</span>A growth team once shipped NB conversion scores straight into a bidding system as expected probabilities. Rankings were fine, so tests looked fine - but the bids priced 90%+ "certainties" that converted 10% of the time, and the budget evaporated in a weekend. One calibration plot would have caught it. Decent classifier, bad estimator: it is not a footnote, it is a budget line.</div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 7 <span class="tag exercise">◐ 25 min</span></h2>
+    </div>
+    <ul>
+      <li>Swap <code>ComplementNB</code> in for BernoulliNB on the one-hot categoricals (it wants non-negative inputs - one-hots qualify). Does the imbalanced-data specialist move the AUC on Lumen's ~3% target?</li>
+      <li>Refit GaussianNB on the <em>unscaled</em> numerics. It works just as well - write one sentence on why (hint: each feature gets its own per-class mean and variance, so no distance or gradient ever compares one feature's scale to another's).</li>
+      <li>Two sentences: name a situation where you would reach for NB <em>before</em> logistic regression, and the one output you would refuse to use downstream.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions before you go 🎯 <span class="tag exercise">◐ 90 seconds</span></h2>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1 · What exactly is "naive" about naive Bayes?</p>
+      <button class="qopt" type="button">A · it ignores the prior and uses only the likelihoods</button>
+      <button class="qopt" type="button">B · it assumes every feature is independent of every other, given the class - so the joint likelihood becomes a simple product of per-feature likelihoods</button>
+      <button class="qopt" type="button">C · it can only handle two classes</button>
+      <p class="qwhy">The bet is conditional independence given the class. It is almost always false (on Lumen, channel correlates with returning) - yet it turns an impossible joint estimation into countable 1-D pieces, and the rankings often survive the lie.</p>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">2 · Why should you never trust naive Bayes' predict_proba values?</p>
+      <button class="qopt" type="button">A · sklearn does not compute them correctly</button>
+      <button class="qopt" type="button">B · they are always exactly 0 or 1</button>
+      <button class="qopt" type="button">C · double-counted correlated evidence pushes scores to the extremes - NB is a decent classifier but a bad estimator, so rankings are usable and calibrated probabilities are not</button>
+      <p class="qwhy">The independence violation preserves the argmax far more often than it preserves the values. Use NB scores to sort and select; never feed them into expected-value math without recalibration.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3 · You have word-count features. Which variant, and why does its alpha parameter exist?</p>
+      <button class="qopt" type="button">A · MultinomialNB - and alpha adds pseudocounts so a word never seen in a class cannot zero out the entire product</button>
+      <button class="qopt" type="button">B · GaussianNB - and alpha sets the variance of each bell curve</button>
+      <button class="qopt" type="button">C · BernoulliNB - and alpha controls the binarize threshold</button>
+      <p class="qwhy">Counts belong to MultinomialNB. Because NB multiplies, one unseen feature would veto everything with a hard zero; Laplace smoothing (alpha=1 by default) guarantees no count is ever exactly zero.</p>
+    </div>
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ OFFICIAL SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Source material</span>
+      <h2>What this session covers</h2>
+    </div>
+    <p class="lede">Session 6 covers the naive Bayes material of the anchor sources - StatQuest's two NB episodes and sklearn's module 1.9 - with the theorem itself recapped from the statistics course. Videos, labs, and certificates stay with the official providers.</p>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest - Naive Bayes (multinomial, the spam walk-through)</span><span class="note">Parts 1-3 + the spam story</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest - Gaussian Naive Bayes</span><span class="note">Part 3 + demo</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Bayes' theorem foundation</span><span class="note">recap card only - learn-statistics-with-phoebe owns it</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.9 - GaussianNB, MultinomialNB, BernoulliNB</span><span class="note">Part 3 table + demo</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">sklearn 1.9 - ComplementNB, CategoricalNB</span><span class="note">table row + homework</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn 1.9 - the "bad estimator" predict_proba warning</span><span class="note">Part 2 hard rule + histogram</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Laplace / alpha smoothing (pseudocounts)</span><span class="note">Part 3</span></div>
+      <div class="covered-row"><span class="status pill light">✗</span><span class="name">Full text-classification pipeline (vectorizer to MultinomialNB)</span><span class="note">not covered by design - Lumen has no text; spam demo stays conceptual</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 6 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>The flip</b><span>P(convert | features) ∝ P(features | convert) x P(convert). Count the easy direction per class, flip with Bayes, predict the argmax (MAP).</span></div>
+      <div class="cheat-item"><b>The naive bet</b><span>Assume features independent given the class, so the joint likelihood factorizes into per-feature products. False on Lumen - and it still ranks at ~0.66 AUC.</span></div>
+      <div class="cheat-item"><b>The variants</b><span>Gaussian = continuous (bell per class). Multinomial = counts (text's home). Bernoulli = on/off bits, absence counts too. Complement = imbalanced text. Categorical = ordinal codes.</span></div>
+      <div class="cheat-item"><b>alpha smoothing</b><span>Pseudocounts so no unseen feature has probability zero - one hard zero would veto the whole product. alpha=1 (Laplace) is the default.</span></div>
+      <div class="cheat-item"><b>Never trust its proba</b><span>Decent classifier, bad estimator. Ranking and top-k selection: yes. Calibrated probabilities into expected-value math: never, without recalibration.</span></div>
+      <div class="cheat-item"><b>The scoreboard</b><span>GaussianNB ~0.66, BernoulliNB (cats only) ~0.65 - level with the depth-5 tree, under logistic's ~0.69, fit in milliseconds with one pass and no iterations.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>Session 6 of 10 · learn-classification-regression-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="c5-k-nearest-neighbors.html">← Prev: k-nearest neighbors</a> &nbsp;·&nbsp; <a href="c7-decision-trees.html">Next: Decision trees, in depth →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>

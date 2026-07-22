@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session 9 · Choosing your model - learn classification and regression with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-classification-regression-with-phoebe</a> / Session 9 of 10</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Classification &amp; Regression with Phoebe · Session 9 of 10</div>
+    <h1>Choosing <span class="accent">your model</span></h1>
+    <p class="sub">Seven animals, eight sessions, one leaderboard - and now the session that turns knowledge into judgement. No new algorithms today. Instead: the one axis that lines the whole zoo up (stiffness vs flexibility), a decision guide you can defend in a design review, and the fair-comparison protocol - tune every candidate by cross-validation on train, and spend the test set exactly once. This is the question hiring managers actually probe: not "can you fit a model" but "why THIS model, and how do you know the comparison was fair?" By the end you will have a defensible answer and a harness that produces it.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Getting real</span>
+      <span class="chip audience">Builders · DA / DE / DS</span>
+      <span class="chip audience">Python · scikit-learn</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Setup</span>
+      <span class="a2" style="flex:3.5">3-20 · The map and the guide</span>
+      <span class="a3" style="flex:4">20-40 · Build: the fair harness</span>
+      <span class="a4" style="flex:1">40-45 · Wrap</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>The judgement session</h2>
+    </div>
+    <p class="lede">You have met all seven animals: lines (s2), sigmoids (s3), the engine underneath (s4), neighbors (s5), probability multipliers (s6), rectangles (s7), and margins (s8). Each session ended with a number on the Lumen leaderboard. Today we stop collecting animals and start choosing between them - which is a different skill entirely. Choosing well needs two things: a mental map that says where each algorithm lives, and a protocol that compares them without cheating. Both fit in one session, because you already did the hard part.</p>
+    <div class="legend">
+      <span class="pill solid">Live - built in session</span>
+      <span class="pill light">Self-study - run after</span>
+      <span class="pill amber">★ The one big idea</span>
+      <span class="pill inkpill">The case: Lumen Skincare</span>
+    </div>
+    <div class="callout win">
+      <strong>★ What you walk out with today</strong>
+      A defensible answer to "why THIS model?" - built from the one complexity axis, an honest decision-guide table, and a start-simple rule - plus <code>compare.py</code>, a harness that tunes every candidate by 5-fold CV on train only and leaves the test set sealed for session 10. Fair comparison is not a vibe; it is a protocol.
+    </div>
+  </section>
+
+  <!-- ============ PART 1: THE ONE AXIS ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · the map</span>
+      <h2>The zoo on one axis <span class="tag concept">8 min live</span></h2>
+    </div>
+    <p class="lede">Every algorithm you met sits somewhere on a single axis running from <strong>stiff</strong> (high bias: a strong opinion about the shape of the truth, hard to bend, hard to fool) to <strong>bendy</strong> (high variance: few opinions, fits anything, memorizes noise if you let it). And every knob you learned - polynomial degree, k, tree depth, gamma, C - does the same job: it slides its animal along this axis. Eight sessions of knobs were secretly one knob.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="One horizontal axis from stiff, high-bias models to bendy, high-variance models, with each algorithm from the course placed along it. Underfit zone shaded on the left end, overfit zone on the right end.">
+        <style>
+          .chAT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .chAB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .chAN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .chAZ { font: 700 10.5px Inter, sans-serif; }
+          .chAL { stroke: #C9CEDD; stroke-width: 1.5; }
+        </style>
+        <defs>
+          <marker id="chAh" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+            <path d="M0 0 L8 4 L0 8 Z" fill="#636D85"/>
+          </marker>
+        </defs>
+        <text class="chAT" x="30" y="28">One axis to rule the zoo - stiffness vs flexibility</text>
+
+        <rect x="50" y="90" width="170" height="150" rx="10" fill="#E5F6F8"/>
+        <text class="chAZ" x="66" y="110" fill="#063C44">UNDERFIT ZONE</text>
+        <rect x="660" y="90" width="180" height="150" rx="10" fill="#FDEEF4"/>
+        <text class="chAZ" x="700" y="110" fill="#9C1E52">OVERFIT ZONE</text>
+
+        <line x1="60" y1="170" x2="820" y2="170" stroke="#636D85" stroke-width="2" marker-end="url(#chAh)"/>
+        <text class="chAB" x="60" y="66">STIFF · high bias</text>
+        <text class="chAB" x="670" y="66">BENDY · high variance</text>
+
+        <circle cx="110" cy="170" r="6" fill="#0CA4B8"/>
+        <line class="chAL" x1="110" y1="176" x2="110" y2="192"/>
+        <text class="chAN" x="110" y="206" text-anchor="middle">linear / logistic</text>
+
+        <circle cx="255" cy="170" r="6" fill="#0CA4B8"/>
+        <line class="chAL" x1="255" y1="164" x2="255" y2="146"/>
+        <text class="chAN" x="255" y="138" text-anchor="middle">naive Bayes</text>
+
+        <circle cx="310" cy="170" r="6" fill="#0CA4B8"/>
+        <line class="chAL" x1="310" y1="176" x2="310" y2="192"/>
+        <text class="chAN" x="310" y="206" text-anchor="middle">linear SVM</text>
+
+        <circle cx="410" cy="170" r="6" fill="#E45C8D"/>
+        <line class="chAL" x1="410" y1="164" x2="410" y2="146"/>
+        <text class="chAN" x="410" y="138" text-anchor="middle">shallow tree</text>
+
+        <circle cx="510" cy="170" r="6" fill="#E45C8D"/>
+        <line class="chAL" x1="510" y1="176" x2="510" y2="192"/>
+        <text class="chAN" x="510" y="206" text-anchor="middle">kNN, mid k</text>
+
+        <circle cx="640" cy="170" r="6" fill="#D6336C"/>
+        <line class="chAL" x1="640" y1="164" x2="640" y2="146"/>
+        <text class="chAN" x="640" y="138" text-anchor="middle">deep tree</text>
+
+        <circle cx="720" cy="170" r="6" fill="#D6336C"/>
+        <line class="chAL" x1="720" y1="176" x2="720" y2="192"/>
+        <text class="chAN" x="720" y="206" text-anchor="middle">kNN k=1</text>
+
+        <circle cx="795" cy="170" r="6" fill="#D6336C"/>
+        <line class="chAL" x1="795" y1="164" x2="795" y2="146"/>
+        <text class="chAN" x="795" y="138" text-anchor="middle">big-gamma RBF</text>
+
+        <rect x="30" y="264" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="chAN" x="52" y="275">Every knob you met (degree, k, depth, gamma, C) slides its animal along this one axis.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the whole zoo on the bias-variance axis</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span>The knobs are one knob - complexity<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Slide too far left and the model is too stiff to see the pattern (underfitting: train AND test scores both poor). Slide too far right and it bends around every noisy point (overfitting: train score great, test score collapses). You have already watched every animal fall off the right edge - here is the reunion tour, with the numbers you produced yourself:</p>
+        <table class="clean">
+          <tr><th>Knob pushed to the edge</th><th>What happened on test</th><th>Session</th></tr>
+          <tr><td>Polynomial degree 12 (50 training points)</td><td>test R² <strong>-798,595</strong> - six orders of magnitude worse than the mean</td><td>s2</td></tr>
+          <tr><td>kNN k=1</td><td>AUC <strong>0.50</strong> - memorization scores a coin flip</td><td>s5</td></tr>
+          <tr><td>Tree depth None</td><td>train 1.00, test <strong>0.51</strong> - a perfect memory of the past, useless on the future</td><td>s7</td></tr>
+          <tr><td>RBF gamma cranked up</td><td>boundary wraps single points (you watched it in the explorer)</td><td>s8</td></tr>
+        </table>
+        <p>Four failures, one disease. Diagnosis is now easy: big train-test gap = too far right, slide left. Both scores low = too far left, slide right (or get better features). That is Ng's bias/variance diagnosis in one sentence.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>No free lunch - why OUR leaderboard loves linear<span class="mini">4 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>All course long, the linear family has topped the Lumen leaderboard (logistic ~0.69, LinearSVC ~0.69) while the bendier animals trailed. Say the honest reason out loud: <strong>the Lumen generator is log-linear</strong>. The machine that makes the data IS a linear machine, so models that assume linearity start with the right bet. That is not a law of nature - it is a property of this dataset.</p>
+        <p>On interaction-heavy tabular data (where the effect of one feature flips depending on another), trees and their ensemble descendants routinely win. There is no universally best algorithm - that is the "no free lunch" theorem in practice. The skill is matching the model's assumed shape to the data's true shape, and being suspicious of anyone who has one favorite algorithm for everything.</p>
+        <div class="callout tip"><strong>Where that story continues:</strong> boosted tree ensembles (XGBoost, LightGBM) - the tabular champions on nonlinear data - get their own course, learn-ensemble-methods. We name the animal; we do not teach it here.</div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2: THE DECISION GUIDE ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · the guide</span>
+      <h2>The decision guide <span class="tag concept">9 min live</span></h2>
+    </div>
+    <p class="lede">The axis says how bendy each animal is; this table says what it costs to keep one. Every cell below is something you verified yourself in sessions 2-8 - this is not a blog-post cheat table, it is your own lab notebook, compressed.</p>
+
+    <table class="clean">
+      <tr><th>Algorithm</th><th>Needs scaling?</th><th>Trains fast?</th><th>Interpretable?</th><th>Handles nonlinearity?</th><th>Watch out for</th></tr>
+      <tr><td>Linear regression</td><td>Not for plain OLS</td><td>Yes - closed form</td><td>Yes - coefficients in real units ($)</td><td>Only via built features (poly)</td><td>Multicollinearity; degree explosion (s2's -798,595)</td></tr>
+      <tr><td>Logistic regression</td><td>Helps solvers + any penalty</td><td>Yes</td><td>Yes - readable odds ratios</td><td>No - one straight seam</td><td>Regularized by default; C is INVERSE strength</td></tr>
+      <tr><td>kNN</td><td><strong>Mandatory</strong> (0.64 vs 0.58 AUC)</td><td>"Trains" instantly - but predicts slowly</td><td>No - the model is the data</td><td>Yes - follows the crowd</td><td>Ships the training set as the model: memory + slow predict</td></tr>
+      <tr><td>Naive Bayes</td><td>No</td><td>Fastest in the zoo</td><td>Somewhat - per-class stats</td><td>Mildly - per-feature only</td><td>Lying probabilities: never trust its predict_proba</td></tr>
+      <tr><td>Decision tree</td><td>No</td><td>Yes</td><td>Yes - you can read the rules aloud</td><td>Yes - rectangles</td><td>Instability (small data change, new tree) + must cap depth</td></tr>
+      <tr><td>SVM linear</td><td><strong>Mandatory</strong></td><td>Yes - LinearSVC scales fine</td><td>Partly - weights, but no probabilities</td><td>No</td><td>No predict_proba; use decision_function</td></tr>
+      <tr><td>SVM RBF</td><td><strong>Mandatory</strong></td><td>No - roughly O(n²), subsample big data</td><td>No</td><td>Yes - smooth curves</td><td>Tune gamma and C or lose to linear (0.56 vs 0.69 here)</td></tr>
+    </table>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>Start simple - the baseline is the floor<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The most useful row of that table is the first two. A logistic or linear baseline trains in seconds, explains itself, and sets the floor every fancier model must beat. On Lumen, nothing beat it - and you only know that because you fit the simple thing first.</p>
+        <p>The professional habit: fit the simple model on day one, ship the number to the team, THEN explore. If a deep tree grid buys you +0.002 AUC over logistic, you have learned something valuable: the signal is linear, stop spending compute. If it buys +0.05, you have also learned something: go nonlinear, and say why.</p>
+        <div class="callout tip"><strong>The one-liner for your next design review:</strong> "we start with the model we can explain, and we make the complicated ones earn their keep."</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Interpretability is a requirement, not a preference<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>In regulated settings - credit, insurance, healthcare, hiring - "why did the model say no?" is a question you must answer to a regulator or a customer, sometimes by law. There, the Interpretable column is not a nice-to-have; it eliminates candidates before accuracy is even discussed. A readable odds ratio ("returning customers have ~2.8x the odds") beats hand-waving at a black box every single time.</p>
+        <p>Treat interpretability as a requirement you gather up front, like latency or memory. If the answer is "we must explain every decision", your shortlist is logistic, a shallow tree, maybe linear SVM - and the bake-off runs among those.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>A lending team spent a quarter tuning a model they could not deploy: legal required reason codes per decision, and their winner could not produce them. The runner-up - plain logistic, 1 point of AUC behind - shipped in a week. The best model you cannot ship loses to the good model you can.</div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Learning curves and error analysis - the diagnosis toolkit<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Two habits from Ng's C2 W3 that complete the picture. <strong>Learning curves:</strong> plot train and CV score against training-set size. If the two curves have converged and both sit low, you have a bias problem - more data will NOT help; better features or a bendier model will. If a big gap remains between them, you have a variance problem - more data (or regularization, or sliding left on the axis) helps. Teams burn months collecting data for bias problems; the curve tells you in minutes.</p>
+        <p><strong>Error analysis:</strong> read a sample of the actual mistakes. On Lumen you might find the model misses converters arriving from a channel it rarely sees - a feature fix, not an algorithm swap. The best model-choice tool is sometimes 30 minutes of looking at what the current one gets wrong.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3: THE PROTOCOL ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · the protocol</span>
+      <h2>The fair-comparison protocol <span class="tag concept">8 min live</span></h2>
+    </div>
+    <p class="lede">A comparison is only worth what its protocol guarantees. Ours: every candidate gets its knobs tuned by <strong>5-fold cross-validation on the training set only</strong>, each is judged by its CV mean and spread, and the held-out test set is spent <strong>exactly once</strong> - in session 10, on the finalists. Run our logistic model through it and you get CV AUC <strong>0.706 +/- 0.010</strong> (folds ranging 0.688-0.715, reconciling with intro-ml's "~0.71"). That +/- is not decoration: the spread across folds tells you how much a single lucky or unlucky split could move the number.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pipeline of the fair comparison protocol: candidates are tuned by 5-fold cross-validation inside the training set, winners are picked by CV mean, then one final pass on the sealed test set produces the reported score.">
+        <style>
+          .chBT { font: 700 14px Inter, sans-serif; fill: #1C2233; }
+          .chBB { font: 700 12px Inter, sans-serif; fill: #1C2233; }
+          .chBW { font: 700 12px Inter, sans-serif; fill: #FFFFFF; }
+          .chBN { font: 600 10.5px Inter, sans-serif; fill: #636D85; }
+          .chBbox { fill: #E5F6F8; stroke: #0CA4B8; stroke-width: 1.5; }
+          .chBrow { fill: #FFFFFF; stroke: #C9CEDD; stroke-width: 1; }
+          .chBarr { stroke: #636D85; stroke-width: 2; fill: none; }
+        </style>
+        <defs>
+          <marker id="chBh" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+            <path d="M0 0 L8 4 L0 8 Z" fill="#636D85"/>
+          </marker>
+        </defs>
+        <text class="chBT" x="30" y="28">The protocol - every candidate tuned on train, test spent once</text>
+
+        <rect class="chBbox" x="40" y="50" width="340" height="200" rx="12"/>
+        <text class="chBB" x="56" y="76">TRAIN - 30,000 rows</text>
+        <text class="chBN" x="56" y="94">each candidate tuned by 5-fold CV, inside</text>
+        <rect class="chBrow" x="56" y="106" width="308" height="24" rx="6"/>
+        <text class="chBN" x="66" y="122">logistic - no grid needed · 5-fold CV</text>
+        <rect class="chBrow" x="56" y="134" width="308" height="24" rx="6"/>
+        <text class="chBN" x="66" y="150">kNN - k in 25 / 51 / 101 · 5-fold CV</text>
+        <rect class="chBrow" x="56" y="162" width="308" height="24" rx="6"/>
+        <text class="chBN" x="66" y="178">tree - depth 3 / 5 / 8 · 5-fold CV</text>
+        <rect class="chBrow" x="56" y="190" width="308" height="24" rx="6"/>
+        <text class="chBN" x="66" y="206">LinearSVC - C 0.1 / 1 / 10 · 5-fold CV</text>
+        <rect class="chBrow" x="56" y="218" width="308" height="24" rx="6"/>
+        <text class="chBN" x="66" y="234">GaussianNB - nothing to tune</text>
+
+        <line class="chBarr" x1="380" y1="150" x2="428" y2="150" marker-end="url(#chBh)"/>
+
+        <rect x="432" y="105" width="170" height="90" rx="12" fill="#FDEEF4" stroke="#F2AECB" stroke-width="1.5"/>
+        <text class="chBB" x="448" y="132">Pick winners</text>
+        <text class="chBN" x="448" y="152">best params per</text>
+        <text class="chBN" x="448" y="168">candidate, judged</text>
+        <text class="chBN" x="448" y="184">by CV mean +/- std</text>
+
+        <line class="chBarr" x1="602" y1="150" x2="650" y2="150" marker-end="url(#chBh)"/>
+
+        <rect x="654" y="105" width="190" height="90" rx="12" fill="#D6336C"/>
+        <text class="chBW" x="670" y="132">ONE test pass</text>
+        <text class="chBN" x="670" y="152" fill="#FDEEF4">10,000 sealed rows</text>
+        <text class="chBN" x="670" y="168" fill="#FDEEF4">opened in session 10,</text>
+        <text class="chBN" x="670" y="184" fill="#FDEEF4">once, then reported</text>
+
+        <rect x="40" y="266" width="804" height="34" rx="10" fill="none" stroke="#C9CEDD" stroke-width="1.5"/>
+        <text class="chBN" x="56" y="287">Report BOTH numbers: CV mean +/- spread (stability) and the single test score (the headline).</text>
+
+        <rect x="30" y="312" width="14" height="14" rx="3" fill="#0CA4B8"/>
+        <text class="chBN" x="52" y="323">Tune on CV, spend test once. Peek at test repeatedly and it quietly becomes a validation set.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the fair-comparison pipeline, from CV loops to the single sealed test pass</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>GridSearchCV per candidate, one harness<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The mechanics are intro-ml's <code>GridSearchCV</code>, applied at zoo scale: one dict of (pipeline, param grid) pairs, one loop, <code>cv=5</code> and <code>scoring="roc_auc"</code> for all. Because every pipeline carries its own preprocessing, scaling happens inside each CV fold - no leakage, no favoritism. Candidates with nothing to tune (GaussianNB) just run through the same loop with an empty grid, so every number on the board was produced by the identical procedure.</p>
+        <p>One nice detail: LinearSVC has no <code>predict_proba</code>, but <code>scoring="roc_auc"</code> falls back to <code>decision_function</code> automatically - the s8 lesson, paying rent.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span>HARD RULE: never tune on test<span class="mini">3 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The test set answers one question - "how will the chosen model do on data it has never seen?" - and it can only answer it once. Every time you peek at test, adjust a knob, and peek again, the test set stops being unseen: you are selecting for whatever flatters those 10,000 particular rows. Repeated peeking turns your test set into a validation set, and the final score you report becomes an optimistic lie - one that production traffic will correct, publicly.</p>
+        <p>This is why <code>compare.py</code> below computes nothing on <code>X_te</code>. Not one number. The cliffhanger is deliberate: session 10 opens the vault.</p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span>Why report the +/-<span class="mini">2 min</span><span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Our logistic folds ranged 0.688 to 0.715. If you had judged it on one unlucky split you would call it a 0.69 model; on one lucky split, a 0.72 model. The fold spread is the honest error bar on your estimate - a single split can be lucky, and the +/- is how you confess that.</p>
+        <p>It also breaks ties like an adult: a candidate at 0.70 +/- 0.01 is a better bet than one at 0.71 +/- 0.04, because the second one might be a 0.67 model wearing a lucky split. Stability is information. Report mean AND spread, always.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo-1">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Build the fair harness <span class="tag demo">★ 18 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">One script, five candidates, identical treatment: each pipeline gets GridSearchCV with <code>cv=5</code> and <code>scoring="roc_auc"</code> on the training set. We print each winner's params and CV mean +/- std - and we do not touch the test set. That restraint is the whole point of the session.</p>
+
+    <div class="steps">
+      <div class="step"><p><strong>Load and split as always.</strong> Seed 42, stratified, 25% test - the same vault every session has used. The split happens; the test half then goes untouched.</p></div>
+      <div class="step"><p><strong>Declare the candidates.</strong> A dict of (estimator, grid) pairs. Grids are small and honest: k in [25, 51, 101], depth in [3, 5, 8], C in [0.1, 1, 10]. GaussianNB and logistic run with empty grids - same loop, same judge.</p></div>
+      <div class="step"><p><strong>Run the loop.</strong> Every candidate is tuned by the same 5-fold CV on the same folds of the same training data. Print best params, CV mean, CV std.</p></div>
+      <div class="step"><p><strong>Stop.</strong> Rank by CV mean, note the spreads, write your recommendation - and leave <code>X_te</code> sealed. Session 10 opens it, once.</p></div>
+    </div>
+
+    <div class="prompt-box good">
+      <span class="label">compare.py - five candidates, one fair judge, zero test peeks</span>import pandas as pd
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import LinearSVC
+from sklearn.naive_bayes import GaussianNB
+
+df = pd.read_parquet("lumen_sessions.parquet")
+cat = ["channel", "device", "new_vs_returning", "product_category"]
+num = ["pages_viewed", "session_hour", "prior_30d_spend"]
+X, y = df[cat + num], df["converted"]
+
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y)
+# X_te and y_te are now SEALED. Nothing below touches them.
+
+prep = ColumnTransformer([
+    ("cat", OneHotEncoder(handle_unknown="ignore"), cat),
+    ("num", StandardScaler(), num)])
+
+candidates = {
+    "logistic":   (LogisticRegression(max_iter=2000), {}),
+    "kNN":        (KNeighborsClassifier(),
+                   {"model__n_neighbors": [25, 51, 101]}),
+    "tree":       (DecisionTreeClassifier(random_state=42),
+                   {"model__max_depth": [3, 5, 8]}),
+    "LinearSVC":  (LinearSVC(),
+                   {"model__C": [0.1, 1, 10]}),
+    "GaussianNB": (GaussianNB(), {}),
+}
+
+for name, (model, grid) in candidates.items():
+    pipe = Pipeline([("prep", prep), ("model", model)])
+    search = GridSearchCV(pipe, grid, cv=5,
+                          scoring="roc_auc", n_jobs=-1)
+    search.fit(X_tr, y_tr)
+    mean = search.best_score_
+    std = search.cv_results_["std_test_score"][search.best_index_]
+    print(f"{name:10s} CV AUC {mean:.3f} +/- {std:.3f}  {search.best_params_}")
+
+# logistic   CV AUC 0.706 +/- 0.010  (folds ranged 0.688-0.715)
+# the other candidates land near their session numbers on your machine
+# NOBODY scored the test set today - that is session 10's opening move</div>
+
+    <div class="callout tip"><strong>If kNN takes forever:</strong> that is the instance-based tax from session 5 - every CV fold predicts by searching 24,000 training rows. Let it run (a few minutes), and appreciate the logistic column finishing before your coffee cools.</div>
+    <div class="callout example"><span class="ex-pill">Real world</span>A growth team once "compared" models by letting each teammate tune their favorite against the test set all week. The winning score was spectacular and the production launch was not - they had collectively memorized the test set, one peek at a time. One shared harness with a sealed test split is not bureaucracy; it is how the number stays true.</div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 10 <span class="tag exercise">◐ 30 min</span></h2>
+    </div>
+    <ul>
+      <li>Add <code>SVC(kernel="rbf")</code> as a sixth candidate - on a 6,000-row subsample of train (the s8 speed lesson), with a small grid over <code>gamma</code> in [0.01, 0.1, 1] and <code>C</code> in [0.1, 1, 10]. Does tuning rescue it from the default's ~0.56?</li>
+      <li>Rank the candidates twice: once by CV mean, once by CV std (most stable first). Do the two rankings agree? Where they disagree, which would you trust for a production pick, and why?</li>
+      <li>Write your model-recommendation memo NOW, before seeing any test number: which model do you ship for Lumen conversion, and your top three reasons. Session 10 grades it against reality - that is the fun of writing it first.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions before you go 🎯 <span class="tag exercise">◐ 90 seconds</span></h2>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1 · Why do we tune hyperparameters with cross-validation on train, instead of just picking whatever scores best on the test set?</p>
+      <button class="qopt" type="button">A · CV is faster than scoring the test set</button>
+      <button class="qopt" type="button">B · the test set may be spent only once; tuning against it selects knobs that flatter those specific rows, so the reported score becomes an optimistic lie</button>
+      <button class="qopt" type="button">C · the test set is too small for tuning to work</button>
+      <p class="qwhy">Every peek-and-adjust cycle leaks information about the test rows into your choices. CV simulates unseen data using only the training set, so the test set stays a genuine stranger - and its one verdict, in session 10, stays honest.</p>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">2 · Your candidate's five CV folds score 0.63, 0.75, 0.66, 0.74, 0.64. What does that large spread tell you?</p>
+      <button class="qopt" type="button">A · the model is underfitting - slide right on the complexity axis</button>
+      <button class="qopt" type="button">B · nothing - only the mean matters</button>
+      <button class="qopt" type="button">C · the performance estimate is unstable - a single split could have been lucky or unlucky, so trust this candidate's mean less</button>
+      <p class="qwhy">The fold spread is the error bar on your estimate. A wide spread means one split could easily mislead you - which is exactly why we report CV mean +/- std, and why 0.70 +/- 0.01 can be a better bet than 0.71 +/- 0.04.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3 · The Lumen leaderboard has favored linear models all course. The honest explanation is...</p>
+      <button class="qopt" type="button">A · the Lumen generator is log-linear, so linear models assume the right shape - no free lunch: on interaction-heavy data, trees would win</button>
+      <button class="qopt" type="button">B · linear models are universally the best algorithms for tabular data</button>
+      <button class="qopt" type="button">C · the bendier models were never tuned properly</button>
+      <p class="qwhy">There is no universally best algorithm. Our data's true machine is linear, so linear bets win here - say that out loud in your readout. On nonlinear, interaction-heavy data the ranking flips, which is the ensembles course's opening story.</p>
+    </div>
+    <p class="quiz-score"></p>
+  </section>
+
+  <!-- ============ OFFICIAL SOURCES ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Source material</span>
+      <h2>What this session covers</h2>
+    </div>
+    <p class="lede">Session 9 covers the model-selection layer of the anchor sources: Ng's bias/variance diagnosis week and the practical-choice wisdom scattered across the scikit-learn module pages. Certificates, videos, and graded labs stay with the official providers.</p>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Ng C2 W3 - diagnosing bias and variance</span><span class="note">Part 1 + the axis</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Ng C2 W3 - regularization vs bias/variance</span><span class="note">Part 1 knob table</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Ng C2 W3 - learning curves</span><span class="note">Part 2 self-study card</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Ng C2 W3 - error analysis</span><span class="note">Part 2 self-study card</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn - model-choice heuristics distilled from all five module pages (1.1, 1.4, 1.6, 1.9, 1.10)</span><span class="note">Part 2 decision guide</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">sklearn - GridSearchCV protocol: tune on CV, never on test</span><span class="note">Part 3 + demo</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">StatQuest - the bias-variance trade-off framing (Regularization Part 1's story)</span><span class="note">Part 1</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">AutoML / ensembling as the variance fix</span><span class="note">not covered by design - named for the ensembles course</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 9 cheat sheet <span>· pin this</span></h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>One complexity axis</b><span>Stiff (high bias) to bendy (high variance). Every knob - degree, k, depth, gamma, C - slides its animal along it. Big train-test gap: slide left. Both scores low: slide right or improve features.</span></div>
+      <div class="cheat-item"><b>The knob failures</b><span>Degree 12: test R² -798,595. kNN k=1: AUC 0.50. Depth None: train 1.00 / test 0.51. Big gamma: point-wrapping. Four edges, one disease.</span></div>
+      <div class="cheat-item"><b>Decision-guide highlights</b><span>kNN + SVM: scaling mandatory. Trees + NB: no scaling, but trees are unstable and NB's probabilities lie. Logistic: readable odds ratios. RBF: tune or lose.</span></div>
+      <div class="cheat-item"><b>Start simple</b><span>The logistic/linear baseline is the floor every fancy model must beat. On Lumen, nothing beat it. Make complexity earn its keep.</span></div>
+      <div class="cheat-item"><b>The CV number</b><span>Logistic 5-fold CV AUC 0.706 +/- 0.010 (folds 0.688-0.715). Report mean AND spread - the spread is the error bar, and a single split can be lucky.</span></div>
+      <div class="cheat-item"><b>Spend test once</b><span>Tune every candidate by CV on train; the test set answers one question, once, in session 10. Repeated peeking turns test into validation and the score into a lie.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>Session 9 of 10 · learn-classification-regression-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span><a href="c8-support-vector-machines.html">← Prev: Support vector machines</a> &nbsp;·&nbsp; <a href="c10-capstone-the-bake-off.html">Next: Capstone - the bake-off →</a></span>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+</body>
+</html>
