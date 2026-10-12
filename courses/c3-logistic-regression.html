@@ -95,7 +95,7 @@
         <text class="lgAT" x="30" y="26">The sigmoid - any score in, a probability out</text>
 
         <!-- axes -->
-        <line x1="70" y1="266" x2="830" y2="266" stroke="#C9CEDD" stroke-width="1.5" marker-end="url(#lgAh)"/>
+        <line x1="86" y1="266" x2="830" y2="266" stroke="#C9CEDD" stroke-width="1.5" marker-end="url(#lgAh)"/>
         <line x1="90" y1="280" x2="90" y2="48" stroke="#C9CEDD" stroke-width="1.5" marker-end="url(#lgAh)"/>
         <text class="lgAN" x="770" y="284">z = w·x + b</text>
         <text class="lgAN" x="30" y="44">p = sigma(z)</text>
@@ -110,15 +110,15 @@
         <line x1="90" y1="163" x2="790" y2="163" stroke="#0CA4B8" stroke-width="1.5" stroke-dasharray="5 4"/>
         <!-- z = 0 boundary -->
         <line x1="440" y1="60" x2="440" y2="266" stroke="#9C1E52" stroke-width="2" stroke-dasharray="5 4"/>
-        <text class="lgAM" x="452" y="78">z = 0, p = 0.5</text>
-        <text class="lgAN" x="452" y="94">the decision boundary</text>
+        <text class="lgAM" x="428" y="78" text-anchor="end">z = 0, p = 0.5</text>
+        <text class="lgAN" x="428" y="94" text-anchor="end">the decision boundary</text>
 
         <!-- the curve -->
         <path d="M92 264 C250 262 350 240 440 163 C530 86 630 64 790 62" fill="none" stroke="#D6336C" stroke-width="3"/>
 
         <!-- region hints -->
-        <circle cx="200" cy="230" r="5" fill="#0CA4B8"/>
-        <text class="lgAC" x="212" y="234">z below 0: predict no</text>
+        <circle cx="200" cy="212" r="5" fill="#0CA4B8"/>
+        <text class="lgAC" x="212" y="216">z below 0: predict no</text>
         <circle cx="600" cy="112" r="5" fill="#D6336C"/>
         <text class="lgAM" x="612" y="116">z above 0: predict convert</text>
         <text class="lgAN" x="560" y="240">sigma(z) = 1 / (1 + e^-z)</text>
